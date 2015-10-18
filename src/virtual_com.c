@@ -2,13 +2,25 @@
 #include "dma_serial.h"
 
 uint8_t rx_buffer[128];
-DMA_SerialHandle vcp = { { 0 }, { 0 }, rx_buffer, 128, rx_buffer };
+DMA_SerialHandle vcp = {
+	{ 0 },
+	{ 0 },
+	rx_buffer,
+	128,
+	rx_buffer
+};
 
+/**
+ * Get a reference to the HAL UART instance.
+ */
 UART_HandleTypeDef*
 vcp_handle() {
 	return &vcp.huart;
 }
 
+/**
+ * Initialize the UART to communicate with the virtual COM port.
+ */
 void
 vcp_init() {
 	/* Configure the UART for the virtual COM port. */
@@ -49,11 +61,16 @@ vcp_init() {
 }
 
 uint8_t
-vcp_available() {
-	return 0;
+vcp_count() {
+	return dma_serial_count(&vcp);
 }
 
 uint8_t
-vcp_getchar() {
-	return 0;
+vcp_getc() {
+	return dma_serial_getc(&vcp);
+}
+
+uint8_t
+vcp_read(uint8_t* buffer, uint8_t position, uint8_t length) {
+	return dma_serial_read(&vcp, buffer, position, length);
 }

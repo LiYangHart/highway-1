@@ -1,67 +1,96 @@
 #include "skywire.h"
 #include "dma_serial.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
-UART_HandleTypeDef huart_skywire;
-DMA_HandleTypeDef hdma_skywire;
+uint8_t rx_buffer[128];
+DMA_SerialHandle skywire = {
+	{ 0 },
+	{ 0 },
+	rx_buffer,
+	128,
+	rx_buffer
+};
 
-uint8_t rx_buffer[RX_BUFFER_LEN];
-uint8_t const * rx_tail_ptr;
-
+/**
+ * Get a reference to the HAL UART instance.
+ */
 UART_HandleTypeDef*
 skywire_handle() {
-	return &huart_skywire;
+	return &skywire.huart;
 }
 
+/**
+ * Set the pin state of the Skywire ON_OFF pin.
+ *
+ * The pin is configured by HAL_UART_Init() in stm32f4xx_hal_msp.c.
+ */
 void
 skywire_en(GPIO_PinState pinState) {
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, pinState);
 }
 
+/**
+ * Set the pin state of the Skywire RTS pin.
+ *
+ * The pin is configured by HAL_UART_Init() in stm32f4xx_hal_msp.c.
+ */
 void
 skywire_rts(GPIO_PinState pinState) {
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, pinState);
 }
 
+/**
+ * Initialize the UART to communicate with the Skywire modem.
+ */
 void
 skywire_init() {
 	/* Configure the UART for the Skywire modem. */
 	__HAL_RCC_USART1_CLK_ENABLE();
-	huart_skywire.Instance = USART1;
-	huart_skywire.State = HAL_UART_STATE_RESET;
-	huart_skywire.Init.BaudRate = 115200;
-	huart_skywire.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	huart_skywire.Init.Mode = UART_MODE_TX_RX;
-	huart_skywire.Init.WordLength = UART_WORDLENGTH_8B;
-	huart_skywire.Init.Parity = UART_PARITY_NONE;
-	huart_skywire.Init.StopBits = UART_STOPBITS_1;
-	huart_skywire.Init.OverSampling = UART_OVERSAMPLING_16;
-	HAL_UART_Init(&huart_skywire);
+	skywire.huart.Instance = USART1;
+	skywire.huart.State = HAL_UART_STATE_RESET;
+	skywire.huart.Init.BaudRate = 115200;
+	skywire.huart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	skywire.huart.Init.Mode = UART_MODE_TX_RX;
+	skywire.huart.Init.WordLength = UART_WORDLENGTH_8B;
+	skywire.huart.Init.Parity = UART_PARITY_NONE;
+	skywire.huart.Init.StopBits = UART_STOPBITS_1;
+	skywire.huart.Init.OverSampling = UART_OVERSAMPLING_16;
+	HAL_UART_Init(&skywire.huart);
 
 	/* Configure a DMA channel to service the UART. */
 	__HAL_RCC_DMA2_CLK_ENABLE();
-	hdma_skywire.Instance = DMA2_Stream5;
-	hdma_skywire.State = HAL_DMA_STATE_RESET;
-	hdma_skywire.Init.Channel = DMA_CHANNEL_4;
-	hdma_skywire.Init.Direction = DMA_PERIPH_TO_MEMORY;
-	hdma_skywire.Init.PeriphInc = DMA_PINC_DISABLE;
-	hdma_skywire.Init.MemInc = DMA_MINC_ENABLE;
-	hdma_skywire.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-	hdma_skywire.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-	hdma_skywire.Init.Mode = DMA_CIRCULAR;
-	hdma_skywire.Init.Priority = DMA_PRIORITY_LOW;
-	hdma_skywire.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-	hdma_skywire.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_HALFFULL;
-	hdma_skywire.Init.MemBurst = DMA_MBURST_SINGLE;
-	hdma_skywire.Init.PeriphBurst = DMA_PBURST_SINGLE;
-	HAL_DMA_Init(&hdma_skywire);
+	skywire.hdma.Instance = DMA2_Stream5;
+	skywire.hdma.State = HAL_DMA_STATE_RESET;
+	skywire.hdma.Init.Channel = DMA_CHANNEL_4;
+	skywire.hdma.Init.Direction = DMA_PERIPH_TO_MEMORY;
+	skywire.hdma.Init.PeriphInc = DMA_PINC_DISABLE;
+	skywire.hdma.Init.MemInc = DMA_MINC_ENABLE;
+	skywire.hdma.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+	skywire.hdma.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+	skywire.hdma.Init.Mode = DMA_CIRCULAR;
+	skywire.hdma.Init.Priority = DMA_PRIORITY_LOW;
+	skywire.hdma.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+	skywire.hdma.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_HALFFULL;
+	skywire.hdma.Init.MemBurst = DMA_MBURST_SINGLE;
+	skywire.hdma.Init.PeriphBurst = DMA_PBURST_SINGLE;
+	HAL_DMA_Init(&skywire.hdma);
 
-	__HAL_LINKDMA(&huart_skywire, hdmarx, hdma_skywire);
+	__HAL_LINKDMA(&skywire.huart, hdmarx, skywire.hdma);
 
 	/* Start the receive process. */
-	HAL_UART_Receive_DMA(&huart_skywire, rx_buffer, RX_BUFFER_LEN);
-	rx_tail_ptr = rx_buffer;
+	HAL_UART_Receive_DMA(&skywire.huart, skywire.rx_buffer, skywire.rx_length);
 }
 
+/**
+ * Perform the activation function for the Skywire modem.
+ *
+ * This requires a pulse of 1s < HOLD_TIME < 2s to be applied to ON_OFF.
+ * The modem may not respond to commands for up to 15 seconds.
+ *
+ * Must be called from a FreeRTOS task. The task will be blocked for the
+ * duration of the initialization sequence.
+ */
 void
 skywire_activate() {
 	skywire_rts(GPIO_PIN_RESET);
@@ -78,26 +107,16 @@ skywire_activate() {
 }
 
 uint8_t
-skywire_available() {
-	uint8_t const * head = rx_buffer + RX_BUFFER_LEN - __HAL_DMA_GET_COUNTER(huart_skywire.hdmarx);
-	uint8_t const * tail = rx_tail_ptr;
-	if( head >= tail ) {
-		return head - tail;
-	} else {
-		return head - tail + RX_BUFFER_LEN;
-	}
+skywire_count() {
+	return dma_serial_count(&skywire);
 }
 
 uint8_t
-skywire_getchar() {
-	uint8_t const * head = rx_buffer + RX_BUFFER_LEN - __HAL_DMA_GET_COUNTER(huart_skywire.hdmarx);
-	uint8_t const * tail = rx_tail_ptr;
-	if (head != tail) {
-	    char c =  *rx_tail_ptr++;
-	    if (rx_tail_ptr >= rx_buffer + RX_BUFFER_LEN) {
-	        rx_tail_ptr -= RX_BUFFER_LEN;
-	    }
-	    return c;
-	}
-	return 0xFF;
+skywire_getc() {
+	return dma_serial_getc(&skywire);
+}
+
+uint8_t
+skywire_read(uint8_t* buffer, uint8_t position, uint8_t length) {
+	return dma_serial_read(&skywire, buffer, position, length);
 }

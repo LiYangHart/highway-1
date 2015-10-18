@@ -1,10 +1,5 @@
 /**
- * Media driver implementation for FreeRTOS FAT SL using SPI SD driver for SDHC and SDXC cards.
- *
- * A basic SPI SD driver implementation using HAL SPI device with polled IO.
- *
- * TODO Clock speed increase after card initialization.
- * TODO Implement read and write sector using DMA or interrupt.
+ * Simple virtual COM port API for ST-LINK on UART2.
  *
  * Author: Mark Lieberman
  */
@@ -20,25 +15,11 @@
 extern "C" {
 #endif
 
-/**
- * Get a reference to the HAL UART instance.
- */
 UART_HandleTypeDef* vcp_handle();
-
-/**
- * Initialize the UART to communicate with the virtual COM port.
- */
 void vcp_init();
-
-/**
- * Get the number of characters available in the serial buffer.
- */
-uint8_t vcp_available();
-
-/**
- * Get the next character in the serial buffer.
- */
-uint8_t vcp_getchar();
+uint8_t vcp_count();
+uint8_t vcp_getc();
+uint8_t vcp_read(uint8_t* buffer, uint8_t position, uint8_t length);
 
 #ifdef __cplusplus
 }
