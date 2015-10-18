@@ -43,8 +43,6 @@
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_conf.h"
 
-#include "skywire.h"
-
 /** @addtogroup STM32F4xx_HAL_Driver
   * @{
   */
@@ -81,12 +79,6 @@ HAL_MspInit(void) {
 	gpio_init.Pull = GPIO_NOPULL;
 	gpio_init.Alternate = GPIO_AF0_MCO;
 	HAL_GPIO_Init(GPIOA, &gpio_init);
-
-
-	// Configure the SPI device.
-	/*
-
-	*/
 }
 
 /**
@@ -234,19 +226,19 @@ HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c) {
 	if (hi2c->Instance == I2C1) {
 		/* PB8 (I2C1_SCL)
 		   Arduino header: D15 */
-		gpio_init.Pin = GPIO_PIN_3;
-		gpio_init.Mode = GPIO_MODE_AF_PP;
+		gpio_init.Pin = GPIO_PIN_8;
+		gpio_init.Mode = GPIO_MODE_AF_OD;
 		gpio_init.Speed = GPIO_SPEED_HIGH;
-		gpio_init.Pull = GPIO_NOPULL;
+		gpio_init.Pull = GPIO_PULLUP;
 		gpio_init.Alternate = GPIO_AF4_I2C1;
 		HAL_GPIO_Init(GPIOB, &gpio_init);
 
-		/* PB9 (I2C1_SCA)
+		/* PB9 (I2C1_SDA)
 		   Arduino header: D14 */
-		gpio_init.Pin = GPIO_PIN_3;
-		gpio_init.Mode = GPIO_MODE_AF_PP;
+		gpio_init.Pin = GPIO_PIN_9;
+		gpio_init.Mode = GPIO_MODE_AF_OD;
 		gpio_init.Speed = GPIO_SPEED_HIGH;
-		gpio_init.Pull = GPIO_NOPULL;
+		gpio_init.Pull = GPIO_PULLUP;
 		gpio_init.Alternate = GPIO_AF4_I2C1;
 		HAL_GPIO_Init(GPIOB, &gpio_init);
 	}
