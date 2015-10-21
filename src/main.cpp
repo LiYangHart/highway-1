@@ -70,6 +70,8 @@ void
 sensorsTask(void* pvParameters) {
 	sensors_init();
 	for(;;) {
+		vTaskDelay(5000);
+
 		trace_printf("lps331: %.2f degC %.2f mbar\n",
 				lps331_read_temp_C(),
 				lps331_read_pres_mbar());
@@ -80,7 +82,34 @@ sensorsTask(void* pvParameters) {
 
 		trace_printf("stlm75: %.2f degC\n",
 				stlm75_read_temp_C());
+	}
+}
 
+void
+cameraTask(void* pvParameters) {
+	vTaskDelay(2000);
+
+	/* Try to mount the SD card. */
+	if (fn_initvolume(mmc_spi_initfunc) != F_NO_ERROR) {
+		trace_printf("sdcard: failed to mount volume\n");
+		return;
+	}
+
+	/* List files on the root of the SD card. */
+	F_FIND xFindStruct;
+	trace_printf("sdcard: list files in root\n");
+	if (f_findfirst( "/*.*", &xFindStruct) == F_NO_ERROR) {
+		do {
+			trace_printf("%s", xFindStruct.filename);
+			if( ( xFindStruct.attr & F_ATTR_DIR ) != 0 ) {
+				trace_printf (" -> dir\n");
+			} else {
+				trace_printf (" -> file %d bytes\n", xFindStruct.filesize);
+			}
+		} while(f_findnext(&xFindStruct) == F_NO_ERROR );
+	}
+
+	for (;;) {
 		vTaskDelay(5000);
 	}
 }
@@ -88,8 +117,9 @@ sensorsTask(void* pvParameters) {
 int
 main(int argc, char* argv[])
 {
-	xTaskCreate(sensorsTask, "HW", (unsigned short)768, (void *)NULL, tskIDLE_PRIORITY, NULL);
-	xTaskCreate(skywireTask, "SW", (unsigned short)384, (void *)NULL, tskIDLE_PRIORITY, NULL);
+	xTaskCreate(sensorsTask, "Sen", (unsigned short)384, (void *)NULL, tskIDLE_PRIORITY, NULL);
+	xTaskCreate(skywireTask, "Sky", (unsigned short)384, (void *)NULL, tskIDLE_PRIORITY, NULL);
+	xTaskCreate(cameraTask,  "Cam", (unsigned short)1024, (void *)NULL, tskIDLE_PRIORITY, NULL);
 	vTaskStartScheduler();
 	for (;;) {}
 }

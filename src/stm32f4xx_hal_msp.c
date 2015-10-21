@@ -104,41 +104,41 @@ HAL_SPI_MspInit(SPI_HandleTypeDef* hspi) {
 
 	/* Configure SPI1 to interface with the SD shield. */
 	if (hspi->Instance == SPI1) {
-		/* P?? (GPIO - Chip Select)
-		   Arduino header: D?? */
-		gpio_init.Pin = GPIO_PIN_1;
+		/* PB10 (GPIO - Chip Select)
+		   Arduino header: D6 */
+		gpio_init.Pin = GPIO_PIN_10;
 		gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
 		gpio_init.Speed = GPIO_SPEED_HIGH;
 		gpio_init.Pull = GPIO_NOPULL;
 		gpio_init.Alternate = GPIO_AF0_MCO;
 		HAL_GPIO_Init(GPIOB, &gpio_init);
 
-		/* P?? (SPI1_SCK)
-		   Arduino header: D?? */
-		gpio_init.Pin = GPIO_PIN_1;
+		/* PB3 (SPI1_SCK)
+		   Arduino header: D3 */
+		gpio_init.Pin = GPIO_PIN_3;
 		gpio_init.Mode = GPIO_MODE_AF_PP;
 		gpio_init.Speed = GPIO_SPEED_HIGH;
 		gpio_init.Pull = GPIO_NOPULL;
 		gpio_init.Alternate = GPIO_AF5_SPI1;
-		HAL_GPIO_Init(GPIOA, &gpio_init);
+		HAL_GPIO_Init(GPIOB, &gpio_init);
 
-		/* P?? (SPI1_MOSI)
-		   Arduino header: D?? */
-		gpio_init.Pin = GPIO_PIN_1;
+		/* PB5 (SPI1_MOSI)
+		   Arduino header: D4 */
+		gpio_init.Pin = GPIO_PIN_5;
 		gpio_init.Mode = GPIO_MODE_AF_PP;
 		gpio_init.Speed = GPIO_SPEED_HIGH;
 		gpio_init.Pull = GPIO_NOPULL;
 		gpio_init.Alternate = GPIO_AF5_SPI1;
-		HAL_GPIO_Init(GPIOA, &gpio_init);
+		HAL_GPIO_Init(GPIOB, &gpio_init);
 
-		/* P?? (SPI1_MISO)
-		   Arduino header: D?? */
-		gpio_init.Pin = GPIO_PIN_1;
+		/* PB4 (SPI1_MISO)
+		   Arduino header: D5 */
+		gpio_init.Pin = GPIO_PIN_4;
 		gpio_init.Mode = GPIO_MODE_AF_PP;
 		gpio_init.Speed = GPIO_SPEED_HIGH;
 		gpio_init.Pull = GPIO_PULLUP;
 		gpio_init.Alternate = GPIO_AF5_SPI1;
-		HAL_GPIO_Init(GPIOA, &gpio_init);
+		HAL_GPIO_Init(GPIOB, &gpio_init);
 	}
 }
 

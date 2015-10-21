@@ -559,6 +559,7 @@ spi_sd_release ( F_DRIVER * driver )
 F_DRIVER *
 mmc_spi_initfunc ( unsigned long driver_param )
 {
+	__HAL_RCC_SPI1_CLK_ENABLE();
 	hspi_sdcard.Instance = SPI1;
 	hspi_sdcard.State = HAL_SPI_STATE_RESET;
 	hspi_sdcard.Init.Mode = SPI_MODE_MASTER;
@@ -578,7 +579,7 @@ mmc_spi_initfunc ( unsigned long driver_param )
 	spi_sd_mdriver.card_ready = 0;
 	spi_sd_mdriver.hspi = &hspi_sdcard;
 	spi_sd_mdriver.ss_gpio_port = GPIOB;
-	spi_sd_mdriver.ss_gpio_pin = GPIO_PIN_5;
+	spi_sd_mdriver.ss_gpio_pin = GPIO_PIN_10;
 
 	// MDriver interface definition
 	t_driver.user_ptr = &spi_sd_mdriver;
