@@ -40,8 +40,11 @@ skywireTask(void* pvParameters) {
 	while(1) {
 
 		uint8_t b;
-		if (HAL_UART_Receive(vcp_handle(), &b, 1, 1000) == HAL_OK) {
-			trace_printf("%c", b);
+		while (vcp_count() > 0) {
+			b = vcp_getc();
+
+			/* Echo characters input to the terminal. */
+			HAL_UART_Transmit(vcp_handle(), &b, 1, 1000);
 
 			if (b == '\n') {
 				b = '\r';
@@ -54,7 +57,8 @@ skywireTask(void* pvParameters) {
 		}
 
 		while(skywire_count() > 0) {
-			trace_printf("%c", skywire_getc());
+			b = skywire_getc();
+			HAL_UART_Transmit(vcp_handle(), &b, 1, 1000);
 		}
 
 		/* Yield to other tasks. */
