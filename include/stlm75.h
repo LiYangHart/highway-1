@@ -42,7 +42,7 @@ typedef struct __STLM75_ConfTypeDef {
 #define STLM75_FAULT_4         0x10
 #define STLM75_FAULT_6         0x18
 
-Sensors_StatusTypeDef stlm75_setup(STLM75_ConfTypeDef* config);
+Devices_StatusTypeDef stlm75_setup(STLM75_ConfTypeDef* config);
 int8_t stlm75_read_temp();
 float stlm75_read_temp_C();
 

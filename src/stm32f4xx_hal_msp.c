@@ -102,16 +102,27 @@ void
 HAL_SPI_MspInit(SPI_HandleTypeDef* hspi) {
 	GPIO_InitTypeDef gpio_init;
 
-	/* Configure SPI1 to interface with the SD shield. */
+	/* Configure SPI1 to interface with the SD shield and ArduCAM. */
 	if (hspi->Instance == SPI1) {
-		/* PB10 (GPIO - Chip Select)
+		/* PB10 (GPIO - Chip Select ArduCAM)
 		   Arduino header: D6 */
+		gpio_init.Pin = GPIO_PIN_8;
+		gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
+		gpio_init.Speed = GPIO_SPEED_HIGH;
+		gpio_init.Pull = GPIO_NOPULL;
+		gpio_init.Alternate = GPIO_AF0_MCO;
+		HAL_GPIO_Init(GPIOA, &gpio_init);
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+
+		/* PB10 (GPIO - Chip Select SD)
+		   Arduino header: D7 */
 		gpio_init.Pin = GPIO_PIN_10;
 		gpio_init.Mode = GPIO_MODE_OUTPUT_PP;
 		gpio_init.Speed = GPIO_SPEED_HIGH;
 		gpio_init.Pull = GPIO_NOPULL;
 		gpio_init.Alternate = GPIO_AF0_MCO;
 		HAL_GPIO_Init(GPIOB, &gpio_init);
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 
 		/* PB3 (SPI1_SCK)
 		   Arduino header: D3 */

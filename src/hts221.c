@@ -1,4 +1,4 @@
-#include "sensors.h"
+#include <devices.h>
 #include "hts221.h"
 #include "math.h"
 
@@ -11,7 +11,7 @@ HTS221_CalibTypeDef hts221_calib = { 0 };
 uint8_t
 hts221_who_am_i() {
 	uint8_t value;
-	if (i2c_read(HTS221_ADDRESS_R, HTS221_WHO_AM_I, &value, 1) != SENSORS_OK) {
+	if (i2c_read8(HTS221_ADDRESS_R, HTS221_WHO_AM_I, &value, 1) != DEVICES_OK) {
 		return 0;
 	}
 	return value;
@@ -21,12 +21,12 @@ hts221_who_am_i() {
  * Retrieve the calibration data from the sensor.
  * This is required to interpolate the physical units from the sensor values.
  */
-Sensors_StatusTypeDef
+Devices_StatusTypeDef
 hts221_read_calib(HTS221_CalibTypeDef* calib) {
 	/* The calibration registers are in order - read them all at once. */
 	uint8_t buffer[16] = { 0 };
-	if (i2c_read(HTS221_ADDRESS_R, I2C_AAI(HTS221_H0_rH_x2), buffer, 16) != SENSORS_OK) {
-		return SENSORS_ERROR;
+	if (i2c_read8(HTS221_ADDRESS_R, I2C_AAI(HTS221_H0_rH_x2), buffer, 16) != DEVICES_OK) {
+		return DEVICES_ERROR;
 	}
 
 	calib->H0_rH = (float)buffer[0] / 2.0;
@@ -38,34 +38,34 @@ hts221_read_calib(HTS221_CalibTypeDef* calib) {
 	calib->T0_OUT = *(int16_t*)&buffer[12];
 	calib->T1_OUT = *(int16_t*)&buffer[14];
 
-	return SENSORS_OK;
+	return DEVICES_OK;
 }
 
 /**
  * Configure the sensor resolution. (The number of conversions which are
  * averaged to produce a sample.)
  */
-Sensors_StatusTypeDef
+Devices_StatusTypeDef
 hts221_res_conf(HTS221_ResConfTypeDef* config) {
 	uint8_t av_conf =
 			  config->AverageHumidity
 			| config->AverageTemperature;
 
-	return i2c_write(HTS221_ADDRESS_W, HTS221_AV_CONF, av_conf);
+	return i2c_write8_8(HTS221_ADDRESS_W, HTS221_AV_CONF, av_conf);
 }
 
 /**
  * Configure the power state, data rate, etc. of the sensor.
  * The sensor needs to be powered up before reading can be taken.
  */
-Sensors_StatusTypeDef
+Devices_StatusTypeDef
 hts221_setup(HTS221_CtrlReg1TypeDef* config) {
 	uint8_t ctrl_reg_1 =
 			  config->PowerDown
 			| config->BlockDataUpdate
 			| config->OutputDataRate;
 
-	return i2c_write(HTS221_ADDRESS_W, HTS221_CTRL_REG_1, ctrl_reg_1);
+	return i2c_write8_8(HTS221_ADDRESS_W, HTS221_CTRL_REG_1, ctrl_reg_1);
 }
 
 /**
@@ -74,7 +74,7 @@ hts221_setup(HTS221_CtrlReg1TypeDef* config) {
 int16_t
 hts221_read_temp() {
 	int16_t buffer = 0;
-	if (i2c_read(HTS221_ADDRESS_R, I2C_AAI(HTS221_TEMP_OUT_L), (uint8_t*)&buffer, 2) != SENSORS_OK) {
+	if (i2c_read8(HTS221_ADDRESS_R, I2C_AAI(HTS221_TEMP_OUT_L), (uint8_t*)&buffer, 2) != DEVICES_OK) {
 		return INT16_MIN;
 	}
 	return buffer;
@@ -86,7 +86,7 @@ hts221_read_temp() {
 int16_t
 hts221_read_hum() {
 	int16_t buffer = 0;
-	if (i2c_read(HTS221_ADDRESS_R, I2C_AAI(HTS221_HUMIDITY_OUT_L), (uint8_t*)&buffer, 2) != SENSORS_OK) {
+	if (i2c_read8(HTS221_ADDRESS_R, I2C_AAI(HTS221_HUMIDITY_OUT_L), (uint8_t*)&buffer, 2) != DEVICES_OK) {
 		return INT16_MIN;
 	}
 	return buffer;

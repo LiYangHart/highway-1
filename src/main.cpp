@@ -1,4 +1,4 @@
-#include <api_mdriver_spi_sd.h>
+#include <devices.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "diag/Trace.h"
@@ -9,12 +9,15 @@
 #include <stm32f4xx_hal_conf.h>
 
 #include <fat_sl.h>
-#include <skywire.h>
-#include <virtual_com.h>
-#include "sensors.h"
+#include <api_mdriver_spi_sd.h>
+
+#include "skywire.h"
+#include "virtual_com.h"
+#include "arducam.h"
 #include "lps331.h"
 #include "hts221.h"
 #include "stlm75.h"
+
 
 /**
  * The Skywire demo task is a simple bridge that connects the virtual COM port
@@ -72,7 +75,7 @@ skywireTask(void* pvParameters) {
  */
 void
 sensorsTask(void* pvParameters) {
-	sensors_init();
+	i2c_init();
 	for(;;) {
 		vTaskDelay(5000);
 
@@ -91,6 +94,11 @@ sensorsTask(void* pvParameters) {
 
 void
 cameraTask(void* pvParameters) {
+	const int BURST_LENGTH = 64;
+	uint8_t buffer[BURST_LENGTH], read;
+
+	spi_init();
+
 	vTaskDelay(2000);
 
 	/* Try to mount the SD card. */
@@ -99,7 +107,7 @@ cameraTask(void* pvParameters) {
 		return;
 	}
 
-	/* List files on the root of the SD card. */
+	/* List files on the root of the SD card.
 	F_FIND xFindStruct;
 	trace_printf("sdcard: list files in root\n");
 	if (f_findfirst( "/*.*", &xFindStruct) == F_NO_ERROR) {
@@ -112,17 +120,65 @@ cameraTask(void* pvParameters) {
 			}
 		} while(f_findnext(&xFindStruct) == F_NO_ERROR );
 	}
+    */
+
+	i2c_init();
 
 	for (;;) {
-		vTaskDelay(5000);
+		if (arducam_start_capture() != DEVICES_OK) {
+			trace_printf("camera: couldn't start capture\n");
+			break;
+		}
+
+		uint32_t capture_length;
+		if (arducam_wait_capture(&capture_length) != DEVICES_OK) {
+			trace_printf("camera: capture flag not asserted\n");
+			break;
+		} else {
+			trace_printf("camera: captured image is %d bytes\n", capture_length);
+		}
+
+		/* Open the image file. */
+		F_FILE* hJpeg = f_open("camera.jpg", "w");
+		if (hJpeg == NULL) {
+			trace_printf("open() failed\n");
+		}
+
+		/* Read the first burst and discard the dummy byte. */
+		read = (capture_length > BURST_LENGTH) ? BURST_LENGTH : capture_length;
+		arducam_burst_read(buffer, read);
+		capture_length -= read + 1;
+		if (f_write(buffer + 1, 1, (read - 1), hJpeg) != (read - 1)) {
+			trace_printf("write failed\n");
+			return;
+		}
+
+		/* Read the remaining bytes. */
+		while (capture_length > 0) {
+			read = (capture_length > BURST_LENGTH) ? BURST_LENGTH : capture_length;
+			arducam_burst_read(buffer, read);
+			capture_length -= read;
+			if (f_write(buffer, 1, read, hJpeg) != read) {
+				trace_printf("write failed\n");
+			}
+		}
+
+		/* Close the image file. */
+		if (f_close(hJpeg) != F_NO_ERROR) {
+			trace_printf("close() failed\n");
+		}
+
+		trace_printf("capture complete\n");
+		vTaskDelay(1200000);
+		break;
 	}
 }
 
 int
 main(int argc, char* argv[])
 {
-	xTaskCreate(sensorsTask, "Sen", (unsigned short)384, (void *)NULL, tskIDLE_PRIORITY, NULL);
-	xTaskCreate(skywireTask, "Sky", (unsigned short)384, (void *)NULL, tskIDLE_PRIORITY, NULL);
+	//xTaskCreate(sensorsTask, "Sen", (unsigned short)384, (void *)NULL, tskIDLE_PRIORITY, NULL);
+	//xTaskCreate(skywireTask, "Sky", (unsigned short)384, (void *)NULL, tskIDLE_PRIORITY, NULL);
 	xTaskCreate(cameraTask,  "Cam", (unsigned short)1024, (void *)NULL, tskIDLE_PRIORITY, NULL);
 	vTaskStartScheduler();
 	for (;;) {}

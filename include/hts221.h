@@ -88,9 +88,9 @@ typedef struct __HTS221_CalibTypeDef {
 extern HTS221_CalibTypeDef hts221_calib;
 
 uint8_t hts221_who_am_i();
-Sensors_StatusTypeDef hts221_read_calib(HTS221_CalibTypeDef* calib);
-Sensors_StatusTypeDef hts221_res_conf(HTS221_ResConfTypeDef* config);
-Sensors_StatusTypeDef hts221_setup(HTS221_CtrlReg1TypeDef* config);
+Devices_StatusTypeDef hts221_read_calib(HTS221_CalibTypeDef* calib);
+Devices_StatusTypeDef hts221_res_conf(HTS221_ResConfTypeDef* config);
+Devices_StatusTypeDef hts221_setup(HTS221_CtrlReg1TypeDef* config);
 int16_t hts221_read_temp();
 int16_t hts221_read_hum();
 float hts221_read_temp_C();

@@ -1,4 +1,4 @@
-#include "sensors.h"
+#include <devices.h>
 #include "stlm75.h"
 #include "math.h"
 
@@ -6,7 +6,7 @@
  * Configure the power state, thermostat mode, etc. of the sensor.
  * The sensor boots into the powered up state.
  */
-Sensors_StatusTypeDef
+Devices_StatusTypeDef
 stlm75_setup(STLM75_ConfTypeDef* config) {
 	uint8_t conf =
 			  config->Shutdown
@@ -14,7 +14,7 @@ stlm75_setup(STLM75_ConfTypeDef* config) {
 			| config->ThermostatMode
 			| config->FaultTolerance;
 
-	return i2c_write(STLM75_ADDRESS, STLM75_CONF, conf);
+	return i2c_write8_8(STLM75_ADDRESS, STLM75_CONF, conf);
 }
 
 /**
@@ -30,8 +30,8 @@ stlm75_setup(STLM75_ConfTypeDef* config) {
 int8_t
 stlm75_read_temp() {
 	int8_t buffer[2] = { 0 };
-	if (i2c_read(STLM75_ADDRESS, STLM75_TEMP, buffer, 2) != SENSORS_OK) {
-		return 0xFFFF;
+	if (i2c_read8(STLM75_ADDRESS, STLM75_TEMP, (uint8_t*)buffer, 2) != DEVICES_OK) {
+		return 0xFF;
 	}
 	return buffer[0];
 }
@@ -42,7 +42,7 @@ stlm75_read_temp() {
 float
 stlm75_read_temp_C() {
 	int16_t buffer = 0;
-	if (i2c_read(STLM75_ADDRESS, STLM75_TEMP, (uint8_t*)&buffer, 2) != SENSORS_OK) {
+	if (i2c_read8(STLM75_ADDRESS, STLM75_TEMP, (uint8_t*)&buffer, 2) != DEVICES_OK) {
 		return NAN;
 	}
 

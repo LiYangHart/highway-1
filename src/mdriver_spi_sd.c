@@ -1,6 +1,5 @@
 #include <api_mdriver_spi_sd.h>
-
-SPI_HandleTypeDef hspi_sdcard;
+#include "devices.h"
 
 /* MDriver and SPI SD driver structures. */
 static F_DRIVER t_driver;
@@ -46,18 +45,6 @@ make_command(uint8_t* buffer, uint8_t command, uint32_t argument, uint8_t crc) {
 	buffer[3] = (argument >> 8)  & 0xFF;
 	buffer[4] = argument         & 0xFF;
 	buffer[5] = crc;
-}
-
-/**
- * Assert the slave select signal for the SPI SD device.
- */
-void
-spi_sd_assert_ss(MMC_SD_MDriver* spi_sd_mdriver, uint8_t select) {
-	if (select) {
-		HAL_GPIO_WritePin(spi_sd_mdriver->ss_gpio_port, spi_sd_mdriver->ss_gpio_pin, GPIO_PIN_RESET);
-	} else {
-		HAL_GPIO_WritePin(spi_sd_mdriver->ss_gpio_port, spi_sd_mdriver->ss_gpio_pin, GPIO_PIN_SET);
-	}
 }
 
 /**
@@ -140,7 +127,7 @@ spi_sd_acmd41_loop(MMC_SD_MDriver* spi_sd_mdriver, uint32_t argument, uint8_t at
 		if (   spi_sd_transmit_bytes(hspi, command, 6)               != SPI_SD_OK
 			|| spi_sd_receive_token(hspi, pred_res_any, &token, 255) != SPI_SD_OK
 			|| spi_sd_transmit_bytes(hspi, ffff_buffer, 8)           != SPI_SD_OK) {
-			spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+			spi_release(SLAVE_SDCARD);
 			return SPI_SD_FAIL;
 		}
 
@@ -149,7 +136,7 @@ spi_sd_acmd41_loop(MMC_SD_MDriver* spi_sd_mdriver, uint32_t argument, uint8_t at
 		if (   spi_sd_transmit_bytes(hspi, command, 6)               != SPI_SD_OK
 			|| spi_sd_receive_token(hspi, pred_res_any, &token, 255) != SPI_SD_OK
 			|| spi_sd_command_recover(spi_sd_mdriver)                != SPI_SD_OK) {
-			spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+			spi_release(SLAVE_SDCARD);
 			return SPI_SD_FAIL;
 		}
 
@@ -169,9 +156,9 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 	SPI_HandleTypeDef* hspi = spi_sd_mdriver->hspi;
 
 	/* Send at least 74 clock transitions. */
-	spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+	spi_release(SLAVE_SDCARD);
 	spi_sd_transmit_bytes(hspi, ffff_buffer, 32);
-	spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_SELECT);
+	spi_select(SLAVE_SDCARD);
 
 	/**
 	 * Send the GO_IDLE_STATE (CMD0) command.
@@ -182,7 +169,7 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 	if (   spi_sd_transmit_bytes(hspi, command, 6)               != SPI_SD_OK
 	    || spi_sd_receive_token(hspi, pred_res_any, &token, 255) != SPI_SD_OK
 		|| spi_sd_command_recover(spi_sd_mdriver)                != SPI_SD_OK) {
-		spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+		spi_release(SLAVE_SDCARD);
 		return SPI_SD_FAIL;
 	}
 	if (token == 0x00) {
@@ -197,7 +184,7 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 	make_command(command, 8, 0x000001AA, 0x87);
 	if (   spi_sd_transmit_bytes(hspi, command, 6)               != SPI_SD_OK
 	    || spi_sd_receive_token(hspi, pred_res_any, &token, 255) != SPI_SD_OK) {
-		spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+		spi_release(SLAVE_SDCARD);
 		return SPI_SD_FAIL;
 	}
 	if (token == 0x05) {
@@ -207,6 +194,7 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 		 **/
 		spi_sd_mdriver->card_type = SPI_SD_CARD_SD1;
 		if (spi_sd_command_recover(spi_sd_mdriver) != SPI_SD_OK) {
+			spi_release(SLAVE_SDCARD);
 			return SPI_SD_FAIL;
 		}
 	} else {
@@ -216,7 +204,7 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 		 **/
 		if (   spi_sd_receive_bytes_ff(hspi, recv_buffer, 4) != SPI_SD_OK
 			|| spi_sd_command_recover(spi_sd_mdriver)        != SPI_SD_OK) {
-			spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+			spi_release(SLAVE_SDCARD);
 			return SPI_SD_FAIL;
 		}
 		uint32_t* cic = (uint32_t*)recv_buffer;
@@ -226,6 +214,7 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 		} else {
 			// Mismatch - unknown card type.
 			spi_sd_mdriver->card_type = SPI_SD_CARD_UNKNOWN;
+			spi_release(SLAVE_SDCARD);
 			return SPI_SD_FAIL;
 		}
 	}
@@ -235,7 +224,7 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 	case SPI_SD_CARD_SD2:
 		/* Put the card into the ready state. */
 		if (spi_sd_acmd41_loop(spi_sd_mdriver, 0x40000000, 255) != SPI_SD_OK) {
-			spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+			spi_release(SLAVE_SDCARD);
 			return SPI_SD_FAIL;
 		}
 
@@ -250,13 +239,13 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 			|| spi_sd_receive_token(hspi, pred_res_ready, &token, 255) != SPI_SD_OK
 			|| spi_sd_receive_bytes_ff(hspi, recv_buffer, 4)           != SPI_SD_OK
 			|| spi_sd_command_recover(spi_sd_mdriver)                  != SPI_SD_OK) {
-			spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+			spi_release(SLAVE_SDCARD);
 			return SPI_SD_FAIL;
 		}
 		uint32_t* ocr = (uint32_t*)recv_buffer;
 		if (OCR_CCS_FLAG(*ocr) == 1) {
 			/* Card is already using block addressing. */
-			spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+			spi_release(SLAVE_SDCARD);
 			spi_sd_mdriver->card_ready = 1;
 			trace_printf("SDv2.0 mounted\n");
 			return SPI_SD_OK;
@@ -278,13 +267,13 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 		/**
 		 * TODO Not implemented yet.
 		 */
-		spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+		spi_release(SLAVE_SDCARD);
 		return SPI_SD_FAIL;
 	default:
 		/**
 		 * Unknown card type.
 		 **/
-		spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+		spi_release(SLAVE_SDCARD);
 		return SPI_SD_FAIL;
 	}
 
@@ -297,11 +286,11 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 	if (   spi_sd_transmit_bytes(hspi, command, 6)                 != SPI_SD_OK
 		|| spi_sd_receive_token(hspi, pred_res_ready, &token, 255) != SPI_SD_OK
 		|| spi_sd_command_recover(spi_sd_mdriver)                  != SPI_SD_OK) {
-		spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+		spi_release(SLAVE_SDCARD);
 		return SPI_SD_FAIL;
 	}
 
-	spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+	spi_release(SLAVE_SDCARD);
 	spi_sd_mdriver->card_ready = 1;
 	trace_printf("SDv1.0 mounted\n");
 	return SPI_SD_OK;
@@ -316,7 +305,7 @@ spi_sd_get_capacity(MMC_SD_MDriver* spi_sd_mdriver, uint32_t* capacity) {
 
 	SPI_HandleTypeDef* hspi = spi_sd_mdriver->hspi;
 
-	spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_SELECT);
+	spi_select(SLAVE_SDCARD);
 
 	/**
 	 * Send the GET_CSD command.
@@ -331,11 +320,11 @@ spi_sd_get_capacity(MMC_SD_MDriver* spi_sd_mdriver, uint32_t* capacity) {
 		|| spi_sd_receive_token(hspi, pred_data_start, &token, 16384) != SPI_SD_OK
 		|| spi_sd_receive_bytes_ff(hspi, recv_buffer, 18)             != SPI_SD_OK
 		|| spi_sd_command_recover(spi_sd_mdriver)                     != SPI_SD_OK) {
-		spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+		spi_release(SLAVE_SDCARD);
 		return SPI_SD_FAIL;
 	}
 
-	spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+	spi_release(SLAVE_SDCARD);
 
 	/* Determine the capacity of the card in sectors. */
 	if (CSD_VERSION(*recv_buffer) == CSD_V2) {
@@ -366,7 +355,7 @@ spi_sd_read_sector(MMC_SD_MDriver* spi_sd_mdriver, uint32_t sector, uint8_t* dat
 
 	SPI_HandleTypeDef* hspi = spi_sd_mdriver->hspi;
 
-	spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_SELECT);
+	spi_select(SLAVE_SDCARD);
 
 	/* Calculate the sector start address if this card uses byte addressing. */
 	if (spi_sd_mdriver->card_type != SPI_SD_CARD_SD2) {
@@ -388,11 +377,11 @@ spi_sd_read_sector(MMC_SD_MDriver* spi_sd_mdriver, uint32_t sector, uint8_t* dat
 		|| spi_sd_receive_bytes_ff(hspi, data, 512)                   != SPI_SD_OK /* Data*/
 		|| spi_sd_transmit_bytes(hspi, recv_buffer, 2)                != SPI_SD_OK /* CRC */
 		|| spi_sd_command_recover(spi_sd_mdriver)                     != SPI_SD_OK) {
-		spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+		spi_release(SLAVE_SDCARD);
 		return SPI_SD_FAIL;
 	}
 
-	spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+	spi_release(SLAVE_SDCARD);
 	return SPI_SD_OK;
 }
 
@@ -405,7 +394,7 @@ spi_sd_write_sector(MMC_SD_MDriver* spi_sd_mdriver, uint32_t sector, uint8_t* da
 
 	SPI_HandleTypeDef* hspi = spi_sd_mdriver->hspi;
 
-	spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_SELECT);
+	spi_select(SLAVE_SDCARD);
 
 	/* Calculate the sector start address if this card uses byte addressing. */
 	if (spi_sd_mdriver->card_type != SPI_SD_CARD_SD2) {
@@ -434,11 +423,11 @@ spi_sd_write_sector(MMC_SD_MDriver* spi_sd_mdriver, uint32_t sector, uint8_t* da
 		|| spi_sd_receive_token(hspi, pred_data_ok, &token, 255)    != SPI_SD_OK /* Data response*/
 		|| spi_sd_receive_token(hspi, pred_not_busy, &token, 65535) != SPI_SD_OK /* Wait until ready*/
 		|| spi_sd_command_recover(spi_sd_mdriver)                   != SPI_SD_OK) {
-		spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+		spi_release(SLAVE_SDCARD);
 		return SPI_SD_FAIL;
 	}
 
-	spi_sd_assert_ss(spi_sd_mdriver, SPI_SD_RELEASE);
+	spi_release(SLAVE_SDCARD);
 	return SPI_SD_OK;
 }
 
@@ -559,27 +548,9 @@ spi_sd_release ( F_DRIVER * driver )
 F_DRIVER *
 mmc_spi_initfunc ( unsigned long driver_param )
 {
-	__HAL_RCC_SPI1_CLK_ENABLE();
-	hspi_sdcard.Instance = SPI1;
-	hspi_sdcard.State = HAL_SPI_STATE_RESET;
-	hspi_sdcard.Init.Mode = SPI_MODE_MASTER;
-	hspi_sdcard.Init.Direction = SPI_DIRECTION_2LINES;
-	hspi_sdcard.Init.DataSize = SPI_DATASIZE_8BIT;
-	hspi_sdcard.Init.CLKPolarity = SPI_POLARITY_LOW;
-	hspi_sdcard.Init.CLKPhase = SPI_PHASE_1EDGE;
-	hspi_sdcard.Init.NSS = SPI_NSS_SOFT;
-	hspi_sdcard.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
-	hspi_sdcard.Init.FirstBit = SPI_FIRSTBIT_MSB;
-	hspi_sdcard.Init.TIMode = SPI_TIMODE_DISABLE;
-	hspi_sdcard.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-	hspi_sdcard.Init.CRCPolynomial = 1;
-	HAL_SPI_Init(&hspi_sdcard);
-
 	// SPI SD MDriver settings definition
 	spi_sd_mdriver.card_ready = 0;
-	spi_sd_mdriver.hspi = &hspi_sdcard;
-	spi_sd_mdriver.ss_gpio_port = GPIOB;
-	spi_sd_mdriver.ss_gpio_pin = GPIO_PIN_10;
+	spi_sd_mdriver.hspi = &hspi;
 
 	// MDriver interface definition
 	t_driver.user_ptr = &spi_sd_mdriver;

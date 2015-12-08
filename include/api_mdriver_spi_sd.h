@@ -31,10 +31,6 @@ extern SPI_HandleTypeDef SPI_HandleSPI1;
 #define SPI_SD_OK   HAL_OK
 #define SPI_SD_FAIL HAL_ERROR
 
-/* Slave select options. */
-#define SPI_SD_RELEASE 0
-#define SPI_SD_SELECT  1
-
 /* Media card types. */
 #define SPI_SD_CARD_UNKNOWN 0
 #define SPI_SD_CARD_SD2     1
