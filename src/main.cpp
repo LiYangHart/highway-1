@@ -18,6 +18,10 @@
 #include "hts221.h"
 #include "stlm75.h"
 
+#include <stdio.h>      /* printf */
+#include <stdarg.h>     /* va_list, va_start, va_arg, va_end */
+
+
 
 /**
  * The Skywire demo task is a simple bridge that connects the virtual COM port
@@ -92,14 +96,37 @@ sensorsTask(void* pvParameters) {
 	}
 }
 
+/**
+ * Find the first free filename in the format capN.jpg, where N is an integer
+ * equal to or greater than 'start'.
+ */
+uint16_t getCaptureIndex(char* buffer, uint8_t length, uint16_t start) {
+	F_FIND xFindStruct;
+	for (int i = start; i < 100; ++i) {
+		snprintf(buffer, length, "cap%d.jpg", i);
+		if (f_findfirst(buffer, &xFindStruct) == F_ERR_NOTFOUND) {
+			return i;
+		}
+	}
+	return 0;
+}
+
+/**
+ * Capture an image to the SD card every 15 seconds.
+ * TODO Implement low power mode for the camera, as it gets very warm during
+ * extended operation.
+ */
 void
 cameraTask(void* pvParameters) {
 	const int BURST_LENGTH = 64;
 	uint8_t buffer[BURST_LENGTH], read;
+	char filename[16];
 
 	spi_init();
 
 	vTaskDelay(2000);
+
+	i2c_init();
 
 	/* Try to mount the SD card. */
 	if (fn_initvolume(mmc_spi_initfunc) != F_NO_ERROR) {
@@ -107,29 +134,16 @@ cameraTask(void* pvParameters) {
 		return;
 	}
 
-	/* List files on the root of the SD card.
-	F_FIND xFindStruct;
-	trace_printf("sdcard: list files in root\n");
-	if (f_findfirst( "/*.*", &xFindStruct) == F_NO_ERROR) {
-		do {
-			trace_printf("%s", xFindStruct.filename);
-			if( ( xFindStruct.attr & F_ATTR_DIR ) != 0 ) {
-				trace_printf (" -> dir\n");
-			} else {
-				trace_printf (" -> file %d bytes\n", xFindStruct.filesize);
-			}
-		} while(f_findnext(&xFindStruct) == F_NO_ERROR );
-	}
-    */
-
-	i2c_init();
-
-	for (;;) {
+	for (int i = 0;; ++i) {
+		/* Trigger a new capture. */
 		if (arducam_start_capture() != DEVICES_OK) {
 			trace_printf("camera: couldn't start capture\n");
 			break;
+		} else {
+			trace_printf("camera: starting capture\n");
 		}
 
+		/* Wait for the capture to complete. */
 		uint32_t capture_length;
 		if (arducam_wait_capture(&capture_length) != DEVICES_OK) {
 			trace_printf("camera: capture flag not asserted\n");
@@ -138,10 +152,13 @@ cameraTask(void* pvParameters) {
 			trace_printf("camera: captured image is %d bytes\n", capture_length);
 		}
 
-		/* Open the image file. */
-		F_FILE* hJpeg = f_open("camera.jpg", "w");
+		/* Create an image file on the SD card. */
+		getCaptureIndex(filename, 16, i);
+		F_FILE* hJpeg = f_open(filename, "w");
 		if (hJpeg == NULL) {
-			trace_printf("open() failed\n");
+			trace_printf("sdcard: open %s failed\n", filename);
+		} else {
+			trace_printf("sdcard: writing to %s\n", filename);
 		}
 
 		/* Read the first burst and discard the dummy byte. */
@@ -169,8 +186,7 @@ cameraTask(void* pvParameters) {
 		}
 
 		trace_printf("capture complete\n");
-		vTaskDelay(1200000);
-		break;
+		vTaskDelay(15000);
 	}
 }
 

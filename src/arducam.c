@@ -99,16 +99,6 @@ Devices_StatusTypeDef
 arducam_wait_capture(uint32_t* capture_length) {
 	uint8_t value;
 
-	spi_select(SLAVE_ARDUCAM);
-	spi_read8(&hspi, ARDUCHIP_SITR, &value, 1);
-	trace_printf("sitr: %02x\n", value);
-	spi_release(SLAVE_ARDUCAM);
-	vTaskDelay(50);
-	spi_select(SLAVE_ARDUCAM);
-	spi_read8(&hspi, ARDUCHIP_CCR, &value, 1);
-	trace_printf("ccr: %02x\n", value);
-	spi_release(SLAVE_ARDUCAM);
-
 	/* Poll the FIFO write done flag. */
 	for(;;) {
 		spi_select(SLAVE_ARDUCAM);
@@ -120,31 +110,39 @@ arducam_wait_capture(uint32_t* capture_length) {
 
 		/* Break when FIFO done is asserted. */
 		if ((value & STATUS_FIFO_DONE_MASK) == STATUS_FIFO_DONE_MASK) {
+			spi_release(SLAVE_ARDUCAM);
 			break;
 		}
 
 		spi_release(SLAVE_ARDUCAM);
-		vTaskDelay(100);
+		vTaskDelay(10);
 	}
 
 	/* Get the FIFO write size. */
+	spi_select(SLAVE_ARDUCAM);
 	if (spi_read8(&hspi, ARDUCHIP_FIFO_WRITE_0, &value, 1) != DEVICES_OK) {
 		spi_release(SLAVE_ARDUCAM);
 		return DEVICES_ERROR;
 	}
+	spi_release(SLAVE_ARDUCAM);
 	*capture_length = value;
 
+	spi_select(SLAVE_ARDUCAM);
 	if (spi_read8(&hspi, ARDUCHIP_FIFO_WRITE_1, &value, 1) != DEVICES_OK) {
 		spi_release(SLAVE_ARDUCAM);
 		return DEVICES_ERROR;
 	}
+	spi_release(SLAVE_ARDUCAM);
 	*capture_length |= (value << 8);
 
+	spi_select(SLAVE_ARDUCAM);
 	if (spi_read8(&hspi, ARDUCHIP_FIFO_WRITE_2, &value, 1) != DEVICES_OK) {
 		spi_release(SLAVE_ARDUCAM);
 		return DEVICES_ERROR;
 	}
+	spi_release(SLAVE_ARDUCAM);
 	*capture_length |= ((value & 0x7) << 16);
+
 
 	spi_release(SLAVE_ARDUCAM);
 	return DEVICES_OK;
@@ -231,6 +229,10 @@ ov5642_setup() {
 	vTaskDelay(100);
 
 	if (i2c_array16_8(OV5642_ADDRESS_W, ov5642_dvp_fmt_jpeg_qvga) != DEVICES_OK) {
+		return DEVICES_ERROR;
+	}
+
+	if (i2c_array16_8(OV5642_ADDRESS_W, ov5642_res_1080P) != DEVICES_OK) {
 		return DEVICES_ERROR;
 	}
 

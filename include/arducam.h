@@ -63,6 +63,7 @@ Devices_StatusTypeDef ov5642_setup();
 /* OV5642 register configuration arrays */
 extern RegisterTuple16_8 ov5642_dvp_fmt_global_init[];
 extern RegisterTuple16_8 ov5642_dvp_fmt_jpeg_qvga[];
+extern RegisterTuple16_8 ov5642_res_1080P[];
 
 #ifdef __cplusplus
 }
