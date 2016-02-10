@@ -7,7 +7,8 @@
 
 #include <stm32f4xx.h>
 #include <stm32f4xx_hal_conf.h>
-#include "devices.h"
+
+#include <peripheral/i2c_spi_bus.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,14 +51,18 @@ extern "C" {
 /* Register access macros */
 #define CCR_FRAMES(n) (n & 0x3)
 
+/* ArduChip API */
 uint8_t arducam_chip();
+uint8_t arducam_init();
 Devices_StatusTypeDef arducam_setup();
 Devices_StatusTypeDef arducam_start_capture();
 Devices_StatusTypeDef arducam_wait_capture(uint32_t* capture_length);
 Devices_StatusTypeDef arducam_read_capture(uint8_t* buffer, uint16_t length);
 Devices_StatusTypeDef arducam_burst_read(uint8_t* buffer, uint16_t length);
 
+/* CMOS sensor API */
 uint16_t ov5642_chip();
+uint8_t ov5642_init();
 Devices_StatusTypeDef ov5642_setup();
 
 /* OV5642 register configuration arrays */

@@ -1,6 +1,7 @@
-#include <devices.h>
-#include "lps331.h"
+#include <peripheral/i2c_spi_bus.h>
+#include <peripheral/lps331.h>
 #include "math.h"
+#include "diag/Trace.h"
 
 /**
  * Read the WHO_AM_I register to detect the presence of the sensor.
@@ -13,6 +14,44 @@ lps331_who_am_i() {
 		return 0;
 	}
 	return value;
+}
+
+/**
+ * Power up and configure the LP2331 sensor.
+ */
+uint8_t
+lps331_init() {
+	if (lps331_who_am_i() != LPS331_WHO_I_AM) {
+		goto not_present;
+	}
+
+	/* Use the average of 512 pressure and 128 temperature samples. */
+	LPS331_ResConfTypeDef lps331_res = { 0 };
+	lps331_res.AveragePressure = LPS331_AVGP_512;
+	lps331_res.AverageTemperature = LPS331_AVGT_128;
+	if (lps331_res_conf(&lps331_res) != DEVICES_OK) {
+		goto not_ready;
+	}
+
+	/* Configure the data rate and power status. */
+	LPS331_CtrlReg1TypeDef lps331_ctrl1 = { 0 };
+	lps331_ctrl1.PowerDown = LPS331_POWER_UP;
+	lps331_ctrl1.OutputDataRate = LPS331_RATE_1_1;
+	lps331_ctrl1.BlockDataUpdate = LPS331_BDU_ENABLE;
+	if (lps331_setup(&lps331_ctrl1) != DEVICES_OK) {
+		goto not_ready;
+	}
+
+	trace_printf("lps331: ready\n");
+	return 1;
+
+not_present:
+	trace_printf("lps331: not present\n");
+	return 0;
+
+not_ready:
+	trace_printf("lps331: not ready\n");
+	return 0;
 }
 
 /**

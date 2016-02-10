@@ -1,6 +1,11 @@
-#include <devices.h>
-#include "stlm75.h"
+#include <peripheral/stlm75.h>
 #include "math.h"
+
+/* The STLM75 boots into a ready to use state. However, it can be placed
+	   into a lower power state with the following command:
+STLM75_ConfTypeDef conf = { 0 };
+conf.Shutdown = STLM75_POWER_DOWN;
+stlm75_setup(&conf); */
 
 /**
  * Configure the power state, thermostat mode, etc. of the sensor.

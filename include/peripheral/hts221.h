@@ -8,6 +8,8 @@
 #include <stm32f4xx.h>
 #include <stm32f4xx_hal_conf.h>
 
+#include <peripheral/i2c_spi_bus.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -88,6 +90,8 @@ typedef struct __HTS221_CalibTypeDef {
 extern HTS221_CalibTypeDef hts221_calib;
 
 uint8_t hts221_who_am_i();
+uint8_t hts221_init();
+uint8_t hts221_ready();
 Devices_StatusTypeDef hts221_read_calib(HTS221_CalibTypeDef* calib);
 Devices_StatusTypeDef hts221_res_conf(HTS221_ResConfTypeDef* config);
 Devices_StatusTypeDef hts221_setup(HTS221_CtrlReg1TypeDef* config);

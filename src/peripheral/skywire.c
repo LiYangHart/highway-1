@@ -1,7 +1,5 @@
-#include "skywire.h"
-#include "dma_serial.h"
-#include "FreeRTOS.h"
-#include "task.h"
+#include <peripheral/dma_serial.h>
+#include <peripheral/skywire.h>
 
 uint8_t rx_buffer[128];
 DMA_SerialHandle skywire = {

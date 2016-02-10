@@ -1,5 +1,5 @@
-#include "virtual_com.h"
-#include "dma_serial.h"
+#include <peripheral/dma_serial.h>
+#include <peripheral/virtual_com.h>
 
 uint8_t rx_buffer[128];
 DMA_SerialHandle vcp = {

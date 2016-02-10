@@ -4,8 +4,8 @@
  * Author: Mark Lieberman
  */
 
-#ifndef _DEVICES_H_
-#define _DEVICES_H_
+#ifndef _I2C_SPI_BUS_H_
+#define _I2C_SPI_BUS_H_
 
 #include <stm32f4xx.h>
 #include <stm32f4xx_hal_conf.h>
@@ -47,14 +47,14 @@ typedef struct {
 } RegisterTuple16_8;
 
 /* SPI functions */
-void spi_init();
+void spi_bus_init();
 void spi_select(Devices_SS slave);
 void spi_release(Devices_SS slave);
 Devices_StatusTypeDef spi_read8(SPI_HandleTypeDef* hspi, uint8_t address, uint8_t* data, uint8_t length);
 Devices_StatusTypeDef spi_write8_8(SPI_HandleTypeDef* hspi, uint8_t address, uint8_t data);
 
 /* I2C functions */
-void i2c_init();
+void i2c_bus_init();
 Devices_StatusTypeDef i2c_read8(uint8_t device, uint8_t address, uint8_t* data, uint8_t length);
 Devices_StatusTypeDef i2c_read16(uint8_t device, uint16_t address, uint8_t* data, uint8_t length);
 Devices_StatusTypeDef i2c_write8_8(uint8_t device, uint8_t address, uint8_t data);
@@ -65,5 +65,5 @@ Devices_StatusTypeDef i2c_array16_8(uint8_t device, RegisterTuple16_8* array);
 }
 #endif
 
-#endif /* _DEVICES_H_ */
+#endif /* _I2C_SPI_BUS_H_ */
 

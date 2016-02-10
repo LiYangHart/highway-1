@@ -1,4 +1,4 @@
-#include "devices.h"
+#include <peripheral/i2c_spi_bus.h>
 
 /**
  * Global register initialization for OV5642.

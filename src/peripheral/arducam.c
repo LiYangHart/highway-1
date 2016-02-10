@@ -1,5 +1,5 @@
-#include "arducam.h"
-#include "devices.h"
+#include <peripheral/arducam.h>
+#include <peripheral/i2c_spi_bus.h>
 #include "diag/Trace.h"
 
 /* ArduChip ----------------------------------------------------------------- */
@@ -30,6 +30,32 @@ arducam_chip() {
 	uint8_t x;
 	spi_read8(&hspi, 0x0, &x, 1);
 	return version;
+}
+
+/**
+ * Initialize the ArduChip on the ArduCAM module.
+ */
+uint8_t
+arducam_init() {
+	if (arducam_chip() != ARDUCHIP_5MP) {
+		goto not_present;
+	}
+
+	if (arducam_setup() != DEVICES_OK) {
+		goto not_ready;
+	}
+
+	trace_printf("camera/arduchip: ready\n");
+	return 1;
+
+not_present:
+	trace_printf("camera/arduchip: not present\n");
+	return 0;
+
+not_ready:
+	trace_printf("camera/arduchip: not ready\n");
+	return 0;
+
 }
 
 /**
@@ -207,6 +233,34 @@ ov5642_chip() {
 	}
 
 	return (high_byte << 8) | low_byte;
+}
+
+/**
+ * Initialize the CMOS sensor on the ArduCAM module.
+ */
+uint8_t
+ov5642_init() {
+	if (ov5642_chip() != OV5642_CHIP_ID) {
+		goto not_present;
+	}
+
+	/* Configure the CMOS sensor for JPEG capture.
+	 * TODO Start in low power mode and change modes later.
+	 */
+	if (ov5642_setup() != DEVICES_OK) {
+		goto not_ready;
+	}
+
+	trace_printf("camera/ov5642: ready\n");
+	return 1;
+
+not_present:
+	trace_printf("camera/ov5642: not present\n");
+	return 0;
+
+not_ready:
+	trace_printf("camera/ov5642: not ready\n");
+	return 0;
 }
 
 /**

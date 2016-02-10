@@ -1,8 +1,9 @@
-#include "devices.h"
-#include "arducam.h"
-#include "lps331.h"
-#include "hts221.h"
-#include "stlm75.h"
+#include <peripheral/arducam.h>
+#include <peripheral/hts221.h>
+#include <peripheral/i2c_spi_bus.h>
+#include <peripheral/lps331.h>
+#include <peripheral/stlm75.h>
+#include "diag/Trace.h"
 
 SPI_HandleTypeDef hspi;
 I2C_HandleTypeDef hi2c;
@@ -13,7 +14,7 @@ I2C_HandleTypeDef hi2c;
  * Setup the SPI bus and initialize all sensors on the bus.
  */
 void
-spi_init() {
+spi_bus_init() {
 	/* Configure the SPI peripheral that interfaces the camera and SD. */
 	__HAL_RCC_SPI1_CLK_ENABLE();
 	hspi.Instance = SPI1;
@@ -32,14 +33,6 @@ spi_init() {
 	if (HAL_SPI_Init(&hspi) != HAL_OK) {
 		trace_printf("HAL SPI setup failed\n");
 		return;
-	}
-
-	if (arducam_chip() == ARDUCHIP_5MP) {
-		if (arducam_setup() != DEVICES_OK) {
-			return;
-		}
-
-		trace_printf("camera/arduchip: ready\n");
 	}
 }
 
@@ -106,10 +99,10 @@ spi_write8_8(SPI_HandleTypeDef* hspi, uint8_t address, uint8_t data) {
 /* I2C ---------------------------------------------------------------------- */
 
 /**
- * Setup the I2C bus and initialize all sensors on the bus.
+ * Setup the I2C peripheral.
  */
 void
-i2c_init() {
+i2c_bus_init() {
 	/* Configure the I2C peripheral that interfaces the sensors. */
 	__HAL_RCC_I2C1_CLK_ENABLE();
 	hi2c.Instance = I2C1;
@@ -126,68 +119,6 @@ i2c_init() {
 		trace_printf("HAL I2C setup failed\n");
 		return;
 	}
-
-	/* Configure the OV5642 camera sensor. */
-	if (ov5642_chip() == OV5642_CHIP_ID) {
-		if (ov5642_setup() != DEVICES_OK) {
-			return;
-		}
-
-		trace_printf("camera/ov5642: ready\n");
-	}
-
-	/* Configure the LPS331. */
-	if (lps331_who_am_i() == LPS331_WHO_I_AM) {
-		/* Use the average of 512 pressure and 128 temperature samples. */
-		LPS331_ResConfTypeDef lps331_res = { 0 };
-		lps331_res.AveragePressure = LPS331_AVGP_512;
-		lps331_res.AverageTemperature = LPS331_AVGT_128;
-		if (lps331_res_conf(&lps331_res) != DEVICES_OK) {
-			return;
-		}
-
-		/* Configure the data rate and power status. */
-		LPS331_CtrlReg1TypeDef lps331_ctrl1 = { 0 };
-		lps331_ctrl1.PowerDown = LPS331_POWER_UP;
-		lps331_ctrl1.OutputDataRate = LPS331_RATE_1_1;
-		lps331_ctrl1.BlockDataUpdate = LPS331_BDU_ENABLE;
-		if (lps331_setup(&lps331_ctrl1) != DEVICES_OK) {
-			return;
-		}
-
-		trace_printf("lps331: ready\n");
-	}
-
-	/* Configure the HTS221. */
-	if (hts221_who_am_i() == HTS221_WHO_I_AM) {
-		/* Store the calibration data for the sensor. */
-		hts221_read_calib(&hts221_calib);
-
-		/* Configure the sample rate for the sensor. */
-		HTS221_ResConfTypeDef res_conf = { 0 };
-		res_conf.AverageHumidity = HTS221_AVGH_512;
-		res_conf.AverageTemperature = HTS221_AVGT_256;
-		if (hts221_res_conf(&res_conf) != DEVICES_OK) {
-			return;
-		}
-
-		/* Configure the data rate and power status. */
-		HTS221_CtrlReg1TypeDef ctrl_reg_1 = { 0 };
-		ctrl_reg_1.PowerDown = HTS221_POWER_UP;
-		ctrl_reg_1.OutputDataRate = HTS221_RATE_1Hz;
-		ctrl_reg_1.BlockDataUpdate = HTS221_BDU_ENABLE;
-		if (hts221_setup(&ctrl_reg_1) != DEVICES_OK) {
-			return;
-		}
-
-		trace_printf("hts221: ready\n");
-	}
-
-	/* The STLM75 boots into a ready to use state. However, it can be placed
-	   into a lower power state with the following command:
-	STLM75_ConfTypeDef conf = { 0 };
-	conf.Shutdown = STLM75_POWER_DOWN;
-	stlm75_setup(&conf); */
 }
 
 /**
@@ -267,3 +198,4 @@ i2c_array16_8(uint8_t device, RegisterTuple16_8* array) {
 	}
 	return DEVICES_OK;
 }
+

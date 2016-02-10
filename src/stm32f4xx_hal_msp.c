@@ -227,6 +227,27 @@ HAL_UART_MspInit(UART_HandleTypeDef* huart) {
 		gpio_init.Alternate = GPIO_AF7_USART2;
 		HAL_GPIO_Init(GPIOA, &gpio_init);
 	}
+
+	/* Configure UART6 to interface with the XBee radio. */
+	if (huart->Instance == USART6) {
+		/* PA11 (USART6_TX)
+		   Morpho header */
+		gpio_init.Pin = GPIO_PIN_11;
+		gpio_init.Mode = GPIO_MODE_AF_PP;
+		gpio_init.Speed = GPIO_SPEED_HIGH;
+		gpio_init.Pull = GPIO_NOPULL;
+		gpio_init.Alternate = GPIO_AF8_USART6;
+		HAL_GPIO_Init(GPIOA, &gpio_init);
+
+		/* PA12 (USART6_RX)
+		   Morpho header */
+		gpio_init.Pin = GPIO_PIN_12;
+		gpio_init.Mode = GPIO_MODE_AF_PP;
+		gpio_init.Speed = GPIO_SPEED_HIGH;
+		gpio_init.Pull = GPIO_NOPULL;
+		gpio_init.Alternate = GPIO_AF8_USART6;
+		HAL_GPIO_Init(GPIOA, &gpio_init);
+	}
 }
 
 void

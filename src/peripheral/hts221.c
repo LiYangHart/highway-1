@@ -1,5 +1,5 @@
-#include <devices.h>
-#include "hts221.h"
+#include <peripheral/hts221.h>
+#include <peripheral/i2c_spi_bus.h>
 #include "math.h"
 
 HTS221_CalibTypeDef hts221_calib = { 0 };
@@ -15,6 +15,49 @@ hts221_who_am_i() {
 		return 0;
 	}
 	return value;
+}
+
+/**
+ * Power up and calibrate the HTS221 sensor.
+ */
+uint8_t
+hts221_init() {
+	if (hts221_who_am_i() != HTS221_WHO_I_AM) {
+		goto not_present;
+	}
+
+	/* Store the calibration data for the sensor. */
+	if (hts221_read_calib(&hts221_calib) != DEVICES_OK) {
+		goto not_ready;
+	}
+
+	/* Configure the sample rate for the sensor. */
+	HTS221_ResConfTypeDef res_conf = { 0 };
+	res_conf.AverageHumidity = HTS221_AVGH_512;
+	res_conf.AverageTemperature = HTS221_AVGT_256;
+	if (hts221_res_conf(&res_conf) != DEVICES_OK) {
+		goto not_ready;
+	}
+
+	/* Configure the data rate and power status. */
+	HTS221_CtrlReg1TypeDef ctrl_reg_1 = { 0 };
+	ctrl_reg_1.PowerDown = HTS221_POWER_UP;
+	ctrl_reg_1.OutputDataRate = HTS221_RATE_1Hz;
+	ctrl_reg_1.BlockDataUpdate = HTS221_BDU_ENABLE;
+	if (hts221_setup(&ctrl_reg_1) != DEVICES_OK) {
+		goto not_ready;
+	}
+
+	trace_printf("hts221: ready\n");
+	return 1;
+
+not_present:
+	trace_printf("hts221: not present\n");
+	return 0;
+
+not_ready:
+	trace_printf("hts221: not ready\n");
+	return 0;
 }
 
 /**

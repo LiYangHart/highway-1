@@ -8,6 +8,8 @@
 #include <stm32f4xx.h>
 #include <stm32f4xx_hal_conf.h>
 
+#include <peripheral/i2c_spi_bus.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

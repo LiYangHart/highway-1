@@ -1,4 +1,4 @@
-#include "dma_serial.h"
+#include <peripheral/dma_serial.h>
 
 uint8_t const *
 head_ptr(DMA_SerialHandle* handle) {
