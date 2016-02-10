@@ -15,9 +15,9 @@
 #include <task/camera_task.h>
 
 /* Enable or disable tasks for development. */
-#define SKYWIRE_TASK 1
+#define SKYWIRE_TASK 0
 #define BEACON_TASK 1
-#define CAMERA_TASK 1
+#define CAMERA_TASK 0
 
 void
 setup_task(void * pvParameters) {
