@@ -431,7 +431,9 @@ beacon_task(void * pvParameters) {
 		}
 	}
 
-
+/*after configuring module, want to either periodically output transmission or
+check for received characters.  For now, just going to send out constant message
+as test to see if it is picked up */
 	for (;;) {
 		/**
 		 * TODO The Skywire task will periodically communicate with the MCC.
@@ -449,8 +451,17 @@ beacon_task(void * pvParameters) {
 
 		/* Echo received bytes from UART6 to the console. */
 
-		while (xbee_count() > 0) {
-			trace_printf("%c", xbee_getc());
+		//if module is set as transmitter, periodically output transmission
+		if (transmit == 1){
+			trace_printf("Sending phrase: 'TEST'\n");
+			xbee_write((uint8_t*)"TEST", 4);
+		}
+
+		//if module is receiver, check for incoming data on buffer periodically
+		else {
+			while (xbee_count() > 0) {
+				trace_printf("%c", xbee_getc());
+			}
 		}
 
 		/* Run task at ~1Hz for now. */
