@@ -49,14 +49,14 @@ beacon_task(void * pvParameters) {
 
 		//checking preamble and network IDS)
 		xbee_write((uint8_t*)"ATHP\r", 5);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("preamble: \n");
 		while (xbee_count() > 0){
 			trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATID\r", 5);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("network ID: \n");
 		while (xbee_count() > 0){
          		trace_printf("%c", xbee_getc());
@@ -64,14 +64,14 @@ beacon_task(void * pvParameters) {
 
 		//setting power level of Xbee to lowest level to begin
 		xbee_write((uint8_t*)"ATPL0\r", 6);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("power level change: \n");
 		while (xbee_count() > 0){
              	trace_printf("%c", xbee_getc());
         }
 
 		xbee_write((uint8_t*)"ATPL\r", 5);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("power level: \n");
 		while (xbee_count() > 0){
 		       trace_printf("%c", xbee_getc());
@@ -79,7 +79,7 @@ beacon_task(void * pvParameters) {
 
 		//set transmitter to not act as node in mesh  network
 		xbee_write((uint8_t*)"ATCE2\r", 6);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("node messaging change: \n");
 		while (xbee_count() > 0){
 		        trace_printf("%c", xbee_getc());
@@ -87,7 +87,7 @@ beacon_task(void * pvParameters) {
 
 		//setting network hops max to 1, shouldn't be needed but doesn't seem to have a default
 		xbee_write((uint8_t*)"ATNH1\r", 6);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("network hop change: \n");
 		while (xbee_count() >0){
 			trace_printf("%c", xbee_getc());
@@ -126,7 +126,7 @@ beacon_task(void * pvParameters) {
 		//set transmit options for point-to-multipoint, acknlowedgements disabled
 		xbee_write((uint8_t*)"ATTO41\r", 7);
 		trace_printf("transmission options set: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() >0){
 				trace_printf("%c", xbee_getc());
 		}
@@ -150,7 +150,7 @@ beacon_task(void * pvParameters) {
 		//check current baud rate.  Might want to change this in future
 		xbee_write((uint8_t*)"ATBD\r", 5);
 		trace_printf("Baud rate value: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() >0){
 				trace_printf("%c", xbee_getc());
 		}
@@ -158,42 +158,42 @@ beacon_task(void * pvParameters) {
 		//as most I/O pins are not connected on shield, disabling for now
 		xbee_write((uint8_t*)"ATD00\r", 6);
 		trace_printf("D0 changed: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() >0){
 				trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATD50\r", 6);
 		trace_printf("D5 changed: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() >0){
 				trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATD70\r", 6);
 		trace_printf("D7 changed: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() >0){
 				trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATD80\r", 6);
 		trace_printf("D8 changed: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 			trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATD9\r", 6);
 		trace_printf("D9 value: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATP0\r", 6);
 		trace_printf("D10 value: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
@@ -209,7 +209,7 @@ beacon_task(void * pvParameters) {
 		//setting analog voltage reference
 		xbee_write((uint8_t*)"ATAV1\r", 6);
 		trace_printf("voltage reference value changed: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
@@ -217,14 +217,14 @@ beacon_task(void * pvParameters) {
 		//after entering commands to set fields, need to apply changes and exit command mode
 		trace_printf("Applying changes \n");
 		xbee_write((uint8_t*)"ATAC\r", 5);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
 
 		trace_printf("Exiting Command Mode \n");
 		xbee_write((uint8_t*)"ATCN\r", 5);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
@@ -250,14 +250,14 @@ beacon_task(void * pvParameters) {
 
 		//checking preamble and network IDS)
 		xbee_write((uint8_t*)"ATHP\r", 5);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("preamble: \n");
 		while (xbee_count() > 0){
 			trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATID\r", 5);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("network ID: \n");
 		while (xbee_count() > 0){
 		        trace_printf("%c", xbee_getc());
@@ -265,14 +265,14 @@ beacon_task(void * pvParameters) {
 
 		//setting power level of Xbee to lowest level to begin
 		xbee_write((uint8_t*)"ATPL0\r", 6);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("power level change: \n");
 		while (xbee_count() > 0){
 		        trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATPL\r", 5);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("power level: \n");
 		while (xbee_count() > 0){
 			trace_printf("%c", xbee_getc());
@@ -280,7 +280,7 @@ beacon_task(void * pvParameters) {
 
 		//set transmitter to not act as node in mesh  network
 		xbee_write((uint8_t*)"ATCE2\r", 6);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("node messaging change: \n");
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
@@ -288,7 +288,7 @@ beacon_task(void * pvParameters) {
 
 		//setting network hops max to 1, shouldn't be needed but doesn't seem to have a default
 		xbee_write((uint8_t*)"ATNH1\r", 6);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		trace_printf("network hop change: \n");
 		while (xbee_count() >0){
 			trace_printf("%c", xbee_getc());
@@ -327,7 +327,7 @@ beacon_task(void * pvParameters) {
 		//set transmit options for point-to-multipoint, acknlowedgements disabled
 		xbee_write((uint8_t*)"ATTO41\r", 7);
 		trace_printf("transmission options set: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() >0){
 			trace_printf("%c", xbee_getc());
 		}
@@ -351,7 +351,7 @@ beacon_task(void * pvParameters) {
 		//check current baud rate.  Might want to change this in future
 		xbee_write((uint8_t*)"ATBD\r", 5);
 		trace_printf("Baud rate value: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() >0){
 			trace_printf("%c", xbee_getc());
 		}
@@ -359,42 +359,42 @@ beacon_task(void * pvParameters) {
 		//as most I/O pins are not connected on shield, disabling for now
 		xbee_write((uint8_t*)"ATD00\r", 6);
 		trace_printf("D0 changed: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() >0){
 				trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATD50\r", 6);
 		trace_printf("D5 changed: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() >0){
 				trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATD70\r", 6);
 		trace_printf("D7 changed: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() >0){
 				trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATD80\r", 6);
 		trace_printf("D8 changed: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 			trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATD9\r", 6);
 		trace_printf("D9 value: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
 
 		xbee_write((uint8_t*)"ATP0\r", 6);
 		trace_printf("D10 value: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
@@ -410,7 +410,7 @@ beacon_task(void * pvParameters) {
 		//setting analog voltage reference
 		xbee_write((uint8_t*)"ATAV1\r", 6);
 		trace_printf("voltage reference value changed: \n");
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
@@ -418,14 +418,14 @@ beacon_task(void * pvParameters) {
 		//after entering commands to set fields, need to apply changes and exit command mode
 		trace_printf("Applying changes \n");
 		xbee_write((uint8_t*)"ATAC\r", 5);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
 
 		trace_printf("Exiting Command Mode \n");
 		xbee_write((uint8_t*)"ATCN\r", 5);
-		vTaskDelay(200);
+		vTaskDelay(500);
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
@@ -465,6 +465,6 @@ as test to see if it is picked up */
 		}
 
 		/* Run task at ~1Hz for now. */
-		vTaskDelay(1000);
+		vTaskDelay(5000);
 	}
 }
