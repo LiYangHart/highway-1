@@ -1,6 +1,9 @@
 #include <peripheral/xbee.h>
 #include <task/beacon_task.h>
+#include <stdio.h>
+#include <string.h>
 #include "diag/Trace.h"
+
 
 /**
  * Initialize the peripherals and state for this task.
@@ -20,6 +23,18 @@ void
 beacon_task(void * pvParameters) {
 	//transmit used to mark if module should be configured as transmitter or receiver
 	int transmit = 1;
+
+	//speed used to hold speed value to transmit through xbee and set constants for string construction
+	int speed = 10;
+	char text_start[5] = "SL: \0";
+	char text_end[7] = " km/hr\0";
+	char speed_string[4];
+	char speed_cat[4];
+	char send_string[13];
+	char zero_one[2] = "0\0";
+	char zero_two[3] = "00\0";
+	char zero_three[4] = "000\0";
+
 	/* Initialize the peripherals and state for this task. */
 	if (!beacon_task_setup()) {
 		trace_printf("beacon_task: setup failed\n");
@@ -30,7 +45,7 @@ beacon_task(void * pvParameters) {
 	}
 
 	//configuration for module acting as transmitter
-	if (transmit == 1)
+/*	if (transmit == 1)
 	{
 		//with Xbee setup, want to first enter command mode to set proper fields for Xbee operation
 		//done by sending three +++ quickly to Xbee, then waiting for one second
@@ -148,7 +163,7 @@ beacon_task(void * pvParameters) {
 		}*/
 
 		//check current baud rate.  Might want to change this in future
-		xbee_write((uint8_t*)"ATBD\r", 5);
+/*		xbee_write((uint8_t*)"ATBD\r", 5);
 		trace_printf("Baud rate value: \n");
 		vTaskDelay(500);
 		while (xbee_count() >0){
@@ -348,7 +363,7 @@ beacon_task(void * pvParameters) {
 				trace_printf("%c", xbee_getc());
 		}*/
 
-		//check current baud rate.  Might want to change this in future
+/*		//check current baud rate.  Might want to change this in future
 		xbee_write((uint8_t*)"ATBD\r", 5);
 		trace_printf("Baud rate value: \n");
 		vTaskDelay(500);
@@ -429,7 +444,7 @@ beacon_task(void * pvParameters) {
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
-	}
+	}*/
 
 /*after configuring module, want to either periodically output transmission or
 check for received characters.  For now, just going to send out constant message
@@ -453,8 +468,38 @@ as test to see if it is picked up */
 
 		//if module is set as transmitter, periodically output transmission
 		if (transmit == 1){
-			trace_printf("Sending phrase: 'TEST'\n");
-			xbee_write((uint8_t*)"TEST", 4);
+			//convert integer speed value to string and pad if needed
+			trace_printf("Constructing string \n");
+			snprintf(speed_string, 4, "%d", speed);
+			trace_printf("%s \n", speed_string);
+			speed_cat[0] = '\0';
+			send_string[0] = '\0';
+			if (strlen(speed_string) == 1){
+				trace_printf("Copying string \n");
+				strcpy(speed_cat, zero_two);
+				trace_printf("%s \n", speed_cat);
+				trace_printf("Concatenating \n");
+				strcat(speed_cat, speed_string);
+			}
+			else if (strlen(speed_string) == 2){
+				strcpy(speed_cat, zero_one);
+				strcat(speed_cat, speed_string);
+			}
+			else if (strlen(speed_string) == 3){
+				strcpy(speed_cat, speed_string);
+			}
+
+			trace_printf("concatenated speed value \n");
+			trace_printf("%s \n", speed_cat);
+			//construct phrase to be sent
+			strcat(send_string, text_start);
+			strcat(send_string, speed_cat);
+			strcat(send_string, text_end);
+			trace_printf("Sending phrase: %s", send_string);
+			xbee_write((uint8_t*)send_string, 13);
+
+			//incrementing speed value for test
+			speed++;
 		}
 
 		//if module is receiver, check for incoming data on buffer periodically
