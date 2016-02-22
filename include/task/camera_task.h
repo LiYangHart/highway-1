@@ -18,7 +18,7 @@ extern "C" {
 #endif
 
 #define CAMERA_TASK_NAME "CAMR"
-#define CAMERA_TASK_STACK_SIZE 1024
+#define CAMERA_TASK_STACK_SIZE 2048
 
 void camera_task(void * pvParameters);
 

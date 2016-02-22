@@ -23,7 +23,6 @@
 extern "C" {
 #endif
 
-
 /* HAL driver handle to SPI1 device. */
 extern SPI_HandleTypeDef SPI_HandleSPI1;
 

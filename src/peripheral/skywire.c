@@ -1,5 +1,6 @@
 #include <peripheral/dma_serial.h>
 #include <peripheral/skywire.h>
+#include <string.h>
 
 uint8_t rx_buffer[128];
 DMA_SerialHandle skywire = {
@@ -117,4 +118,65 @@ skywire_getc() {
 uint8_t
 skywire_read(uint8_t* buffer, uint8_t position, uint8_t length) {
 	return dma_serial_read(&skywire, buffer, position, length);
+}
+
+/**
+ * Write bytes to the Skywire modem.
+ */
+Skywire_StatusTypeDef
+skywire_write(uint8_t* buffer, uint8_t start, uint8_t length) {
+	return HAL_UART_Transmit(skywire_handle(), buffer + start, length, 10000);
+}
+
+/**
+ * Issue a command to the Skywire modem.
+ *
+ * Remember to add \r\n to the end of the command.
+ */
+Skywire_StatusTypeDef
+skywire_at(char* command) {
+	uint8_t length = strlen(command);
+	return skywire_write(command, 0, length);
+}
+
+/**
+ * Read characters into the buffer until the gien predicate is satisfied.
+ */
+Skywire_StatusTypeDef
+skywire_res(ResConfig* res, RES_PREDICATE test, void* param) {
+	res->Read = 0;
+	for (uint16_t d = 0; d < res->Timeout; d += 10) {
+		while (skywire_count() > 0) {
+			if (res->Read == res->Length) {
+				return SKYWIRE_ERROR;
+			} else {
+				res->Buffer[res->Read++] = skywire_getc();
+				if (test(res, param)) {
+					return SKYWIRE_OK;
+				}
+			}
+		}
+
+		vTaskDelay(10);
+	}
+
+	return SKYWIRE_TIMEOUT;
+}
+
+// Predicate tests
+
+/**
+ * Expect the buffer to end with 'param'.
+ */
+uint8_t pred_ends_with(ResConfig* res, void* param) {
+	char* param_ends_with = (char*)param;
+	uint8_t param_length = strlen(param_ends_with);
+
+	if (res->Read < param_length) {
+		return 0;
+	}
+
+	char* in_buffer = res->Buffer + (res->Read - param_length);
+
+	return strncmp(in_buffer, param_ends_with, param_length) == 0;
 }

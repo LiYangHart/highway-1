@@ -18,7 +18,13 @@ extern "C" {
 #endif
 
 #define SKYWIRE_TASK_NAME "SKYW"
-#define SKYWIRE_TASK_STACK_SIZE 1024
+#define SKYWIRE_TASK_STACK_SIZE 2048
+
+typedef struct _Manifest {
+	char Name[64];
+	uint32_t Size;
+	struct _Manifest * Next;
+} Manifest;
 
 void skywire_task(void * pvParameters);
 

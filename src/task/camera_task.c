@@ -2,6 +2,11 @@
 #include <task/camera_task.h>
 #include <fat_sl.h>
 #include <mdriver_spi_sd.h>
+#include <FreeRTOS.h>
+#include <semphr.h>
+
+SemaphoreHandle_t xSemaphore = NULL;
+uint8_t camera_present = 0;
 
 /**
  * Initialize the peripherals and state for this task.
@@ -13,7 +18,7 @@ camera_task_setup() {
 	lps331_init();
 	hts221_init();
 
-	arducam_init();
+	camera_present = arducam_init();
 
 	/* Try to mount the SD card. */
 	if (fn_initvolume(mmc_spi_initfunc) != F_NO_ERROR) {
@@ -57,11 +62,22 @@ camera_task(void * pvParameters) {
 		trace_printf("camera_task: started\n");
 	}
 
+	if (!camera_present) {
+		vTaskDelete(NULL);
+		return;
+	}
+
 	const uint8_t BURST_LENGTH = 64;
 	uint8_t buffer[BURST_LENGTH], read;
 	char filename[16];
 
 	for (int i = 0;; ++i) {
+		/* Obtain exclusive access to the SD card. */
+		if (xSemaphoreTake(xSpiSemaphore, 0) != pdTRUE) {
+			vTaskDelay(100);
+			continue;
+		}
+
 		/* Trigger a new capture. */
 		if (arducam_start_capture() != DEVICES_OK) {
 			trace_printf("camera: couldn't start capture\n");
@@ -113,7 +129,10 @@ camera_task(void * pvParameters) {
 		}
 
 		trace_printf("capture complete\n");
-		vTaskDelay(15000);
+
+		xSemaphoreGive(xSpiSemaphore);
+
+		vTaskDelay(30000);
 	}
 }
 
