@@ -27,7 +27,7 @@ vcp_init() {
 	__HAL_RCC_USART2_CLK_ENABLE();
 	vcp.huart.Instance = USART2;
 	vcp.huart.State = HAL_UART_STATE_RESET;
-	vcp.huart.Init.BaudRate = 9600;
+	vcp.huart.Init.BaudRate = 115200;
 	vcp.huart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	vcp.huart.Init.Mode = UART_MODE_TX_RX;
 	vcp.huart.Init.WordLength = UART_WORDLENGTH_8B;

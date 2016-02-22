@@ -1,4 +1,5 @@
 #include <peripheral/dma_serial.h>
+#include <math.h>
 
 uint8_t const *
 head_ptr(DMA_SerialHandle* handle) {
@@ -45,6 +46,16 @@ dma_serial_getc(DMA_SerialHandle* handle) {
 uint8_t
 dma_serial_read(DMA_SerialHandle* handle, uint8_t* buffer, uint8_t position,
 		uint8_t length) {
-	/* Not implemented yet. */
-	return 0;
+
+	// TODO A proper implementation
+	uint8_t count = dma_serial_count(handle);
+	if (length < count) {
+		count = length;
+	}
+
+	for (int i = 0; i < count; ++i) {
+		buffer[i + position] = dma_serial_getc(handle);
+	}
+
+	return count;
 }
