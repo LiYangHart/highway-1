@@ -26,6 +26,9 @@ beacon_task(void * pvParameters) {
 
 	//speed used to hold speed value to transmit through xbee and set constants for string construction
 	int speed = 10;
+	int prev_speed = 10;
+	int u_limit = 255;
+	int l_limit = 1;
 	char text_start[5] = "SL: \0";
 	char text_end[7] = " km/hr\0";
 	char speed_string[4];
@@ -45,7 +48,7 @@ beacon_task(void * pvParameters) {
 	}
 
 	//configuration for module acting as transmitter
-/*	if (transmit == 1)
+	if (transmit == 1)
 	{
 		//with Xbee setup, want to first enter command mode to set proper fields for Xbee operation
 		//done by sending three +++ quickly to Xbee, then waiting for one second
@@ -160,10 +163,10 @@ beacon_task(void * pvParameters) {
 		vTaskDelay(2000);
 		while (xbee_count() >0){
 				trace_printf("%c", xbee_getc());
-		}*/
+		} */
 
 		//check current baud rate.  Might want to change this in future
-/*		xbee_write((uint8_t*)"ATBD\r", 5);
+		xbee_write((uint8_t*)"ATBD\r", 5);
 		trace_printf("Baud rate value: \n");
 		vTaskDelay(500);
 		while (xbee_count() >0){
@@ -363,7 +366,7 @@ beacon_task(void * pvParameters) {
 				trace_printf("%c", xbee_getc());
 		}*/
 
-/*		//check current baud rate.  Might want to change this in future
+		//check current baud rate.  Might want to change this in future
 		xbee_write((uint8_t*)"ATBD\r", 5);
 		trace_printf("Baud rate value: \n");
 		vTaskDelay(500);
@@ -444,7 +447,7 @@ beacon_task(void * pvParameters) {
 		while (xbee_count() > 0){
 				trace_printf("%c", xbee_getc());
 		}
-	}*/
+	}
 
 /*after configuring module, want to either periodically output transmission or
 check for received characters.  For now, just going to send out constant message
@@ -470,8 +473,18 @@ as test to see if it is picked up */
 		if (transmit == 1){
 			//convert integer speed value to string and pad if needed
 			trace_printf("Constructing string \n");
-			snprintf(speed_string, 4, "%d", speed);
-			trace_printf("%s \n", speed_string);
+
+			//check that speed limit value is within limits.  If not, use previous
+			if (speed >= l_limit && speed <= u_limit) {
+				snprintf(speed_string, 4, "%d", speed);
+				trace_printf("%s \n", speed_string);
+				prev_speed = speed;
+			}
+			else {
+				snprintf(speed_string, 4, "%d", prev_speed);
+				trace_printf("%s \n", speed_string);
+			}
+
 			speed_cat[0] = '\0';
 			send_string[0] = '\0';
 			if (strlen(speed_string) == 1){
@@ -497,7 +510,7 @@ as test to see if it is picked up */
 			strcat(send_string, text_end);
 			trace_printf("Sending phrase: %s", send_string);
 			xbee_write((uint8_t*)send_string, 13);
-
+			trace_printf("\n");
 			//incrementing speed value for test
 			speed++;
 		}
@@ -510,6 +523,6 @@ as test to see if it is picked up */
 		}
 
 		/* Run task at ~1Hz for now. */
-		vTaskDelay(5000);
+		vTaskDelay(10000);
 	}
 }
