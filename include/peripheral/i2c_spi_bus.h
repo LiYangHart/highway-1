@@ -52,6 +52,8 @@ typedef struct {
 } RegisterTuple16_8;
 
 /* SPI functions */
+uint8_t spi_take();
+void spi_give();
 void spi_bus_init();
 void spi_select(Devices_SS slave);
 void spi_release(Devices_SS slave);

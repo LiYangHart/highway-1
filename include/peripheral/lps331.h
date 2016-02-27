@@ -90,6 +90,7 @@ typedef struct __LPS331_CtrlReg1TypeDef {
 #define LPS331_SPI_MODE_3WIRE  0x01
 
 uint8_t lps331_who_am_i();
+uint8_t lps331_init();
 Devices_StatusTypeDef lps331_res_conf(LPS331_ResConfTypeDef* config);
 Devices_StatusTypeDef lps331_setup(LPS331_CtrlReg1TypeDef* config);
 int16_t lps331_read_temp();

@@ -41,6 +41,22 @@ spi_bus_init() {
 }
 
 /**
+ * Obtain exclusive access to the SPI bus.
+ */
+uint8_t
+spi_take() {
+	return (xSemaphoreTake(xSpiSemaphore, 0) == pdTRUE);
+}
+
+/**
+ * Release exclusive access to the SPI bus.
+ */
+void
+spi_give() {
+	xSemaphoreGive(xSpiSemaphore);
+}
+
+/**
  * Assert the slave select signal for the SPI device.
  */
 void

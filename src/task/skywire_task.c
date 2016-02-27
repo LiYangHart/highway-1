@@ -2,63 +2,31 @@
 #include <peripheral/virtual_com.h>
 #include <peripheral/i2c_spi_bus.h>
 #include <task/skywire_task.h>
+#include <task/beacon_task.h>
+#include <hayes.h>
+#include <stdio.h>
 #include <string.h>
 #include <fat_sl.h>
+#include "diag/Trace.h"
 
-char buffer[514];
+/* Buffer for the Skywire modem communication. */
+char buffer[512];
 
 /**
- * Tokenize a response buffer which is delimited by \r\n.
- *
- * This method modifies the input buffer by inserting \0 at the delimiter.
+ * Activate the PDP context for socket communication with the Internet.
  */
-char*
-tokenize_res(ResConfig* res, char* prev_token) {
-	char *c, *d;
-	char *end;
-
-	// Note the end of the buffer.
-	end = res->Buffer + res->Length - 1;
-
-	// Seek to the end of the current token.
-	if (prev_token == NULL) {
-		c = res->Buffer;
-	} else {
-		c = prev_token;
-		c += strlen(prev_token);
-		c += 2; /* \r\n */
-	}
-
-	if (c >= end) {
-		return NULL;
-	}
-
-	// Find the end of the line and convert to null termination.
-	d = c;
-	while (d < end) {
-		if (*d == '\r' && *(d + 1) == '\n') {
-			*d = '\0';
-			*(d + 1) = '\0';
-			return c;
-		}
-		++d;
-	}
-
-	return NULL;
-}
-
 uint8_t
-activate_pdp_context(ResConfig* res) {
+activate_pdp_context(ATDevice* dev) {
 	/**
 	 * Check the state of PDP context 1.
 	 */
-	if (   skywire_at("AT#SGACT?\r\n")                != SKYWIRE_OK
-		|| skywire_res(res, pred_ends_with, "OK\r\n") != SKYWIRE_OK) {
+	if (   hayes_at(dev, "AT#SGACT?\r\n")                 != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "OK\r\n", 1000) != HAYES_OK) {
 		return 0;
 	} else {
-		uint8_t cid, stat;
+		int cid, stat;
 		char* line = NULL;
-		while ((line = tokenize_res(res, line)) != NULL) {
+		while ((line = tokenize_res(dev, line)) != NULL) {
 			/* Look for the state of PDP context 1. */
 			if ((sscanf(line, "#SGACT: %d,%d", &cid, &stat) == 2) && (cid == 1)) {
 				if (stat == 1) {
@@ -76,10 +44,10 @@ activate_pdp_context(ResConfig* res) {
 	 * Input the APN for the Rogers network.
 	 * Activate PDP context 1.
 	 */
-	if (   skywire_at("AT+CGDCONT=1,\"IP\",\"internet.com\"\r\n") != SKYWIRE_OK
-		|| skywire_res(res, pred_ends_with, "OK\r\n")             != SKYWIRE_OK
-		|| skywire_at("AT#SGACT=1,1\r\n")                         != SKYWIRE_OK
-		|| skywire_res(res, pred_ends_with, "OK\r\n")             != SKYWIRE_OK) {
+	if (   hayes_at(dev, "AT+CGDCONT=1,\"IP\",\"internet.com\"\r\n") != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "OK\r\n", 1000)            != HAYES_OK
+		|| hayes_at(dev, "AT#SGACT=1,1\r\n")                         != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "OK\r\n", 10000)           != HAYES_OK) {
 		return 0;
 	}
 
@@ -90,7 +58,7 @@ activate_pdp_context(ResConfig* res) {
  * Initialize the peripherals and state for this task.
  */
 uint8_t
-skywire_task_setup(ResConfig* res) {
+skywire_task_setup(ATDevice* dev) {
 	vcp_init();
 	skywire_init();
 
@@ -102,15 +70,15 @@ skywire_task_setup(ResConfig* res) {
 	 * Disable echo.
 	 * Disable flow control.
 	 */
-	if (   skywire_at("ATE0\r\n")                     != SKYWIRE_OK
-		|| skywire_res(res, pred_ends_with, "OK\r\n") != SKYWIRE_OK
-		|| skywire_at("AT&K=0\r\n")                   != SKYWIRE_OK
-		|| skywire_res(res, pred_ends_with, "OK\r\n") != SKYWIRE_OK) {
+	if (   hayes_at(dev, "ATE0\r\n")                      != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "OK\r\n", 1000) != HAYES_OK
+		|| hayes_at(dev, "AT&K=0\r\n")                    != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "OK\r\n", 1000) != HAYES_OK) {
 		trace_printf("skywire_task: stage1 failed\n");
 		return 0;
 	}
 
-	if (!activate_pdp_context(res)) {
+	if (!activate_pdp_context(dev)) {
 		trace_printf("skywire_task: failed to activate PDP 1\n");
 		return 0;
 	}
@@ -118,188 +86,202 @@ skywire_task_setup(ResConfig* res) {
 	return 1; // OK
 }
 
+// POST manifest ---------------------------------------------------------------
+
 /**
- * Enter a terminal mode to interact with the Skywire modem directly.
+ * Add a file to the manifest.
  */
-void
-skywire_terminal() {
-	char c;
-
-	// Enter terminal mode if VCP receives an ESC key.
-	if (vcp_count() > 0 && (c = vcp_getc()) == '\033') {
-		trace_printf("skywire_task: entering terminal mode\n");
-
-		for (;;) {
-			/*
-			uint8_t b;
-			while () {
-				b = vcp_getc();
-
-				// Echo characters input to the terminal.
-				HAL_UART_Transmit(vcp_handle(), &b, 1, 1000);
-
-				if (b == '\n') {
-					b = '\r';
-					HAL_UART_Transmit(skywire_handle(), &b, 1, 0);
-					b = '\n';
-					HAL_UART_Transmit(skywire_handle(), &b, 1, 0);
-				} else {
-					HAL_UART_Transmit(skywire_handle(), &b, 1, 0);
-				}
-			}
-
-			while(skywire_count() > 0) {
-				b = skywire_getc();
-				HAL_UART_Transmit(vcp_handle(), &b, 1, 1000);
-			}
-
-			vTaskDelay(1);
-			*/
-		}
+uint8_t
+add_to_manifest(Attachment** head, Attachment** tail, char* file) {
+	/* Get the size of the attachment. */
+	uint32_t length;
+	if ((length = f_filelength(file)) == 0) {
+		return 0;
 	}
+
+	/* Allocate an entry for the manifest. */
+	Attachment* attachment;
+	attachment = (Attachment*)pvPortMalloc(sizeof(Attachment));
+	attachment->length = length;
+	attachment->next = NULL;
+	strncpy(attachment->name, file, 64);
+
+	/* Add the attachment to the manifest. */
+	if (*head == NULL) {
+		*head = attachment;
+		*tail = *head;
+	} else {
+		(*tail)->next = attachment;
+		*tail = attachment;
+	}
+
+	return 1;
 }
 
 /**
  * Construct a manifest of files to be sent to the server.
+ * The manifest will contain data.log and any attached images.
  */
-Manifest*
-get_manifest() {
-	char* buffer;
-	uint8_t i = 0;
-
-	Manifest* head = NULL;
-	Manifest* node = NULL;
-
-	/* Collect all of the new images. */
-	F_FIND xFindStruct;
-	if (f_findfirst("CAP*.JPG", &xFindStruct) == F_NO_ERROR) {
-		do {
-			Manifest* entry = (Manifest*)pvPortMalloc(sizeof(Manifest));
-			strncpy(entry->Name, xFindStruct.filename, 64);
-			entry->Size = xFindStruct.filesize;
-			entry->Next = NULL;
-			trace_printf("found: %s\n", entry->Name);
-
-			if (head == NULL) {
-				head = entry;
-				node = entry;
-			} else {
-				node->Next = entry;
-				node = entry;
-			}
-
-			// Send up to 5 images.
-			if (++i >= 2) {
-				break;
-			}
-		} while(f_findnext( &xFindStruct ) == F_NO_ERROR);
+uint8_t
+get_manifest(Attachment** manifest) {
+	F_FILE* pxLog;
+	if ((pxLog = f_open("data.log", "r")) == NULL) {
+		trace_printf("skywire_task: failed to open data.log\n");
+		return 0;
 	}
 
-	return head;
-}
+	/* Add data.log to the start of the manifest. */
+	Attachment* tail = NULL;
+	if (!add_to_manifest(manifest, &tail, "data.log")) {
+		goto error;
+	}
 
-void
-free_manifest(Manifest* manifest) {
-	Manifest* next = NULL;
-	while (manifest != NULL) {
-		next = manifest->Next;
-
-		if (f_delete(manifest->Name) == F_NO_ERROR) {
-			trace_printf("deleting %s\n", manifest->Name);
+	/* Parse the data log and look for attachments. */
+	char line[128];
+	while (f_eof(pxLog) == 0) {
+		for (uint8_t i = 0; i < 128; ++i) {
+			char c = f_getc(pxLog);
+			if (c == '\n') {
+				line[i] = '\0';
+				break;
+			} else {
+				line[i] = c;
+			}
 		}
 
+		if (memcmp(line, "FILE:", 5) == 0) {
+			int tick;
+			char file[64];
+			if (sscanf((line + 5), "{\"tick\":%d,\"file\":\"%[^\"]\"}", &tick, file) == 2) {
+				if (!add_to_manifest(manifest, &tail, file)) {
+					goto error;
+				}
+			}
+
+		}
+	}
+
+	f_close(pxLog);
+	return 1;
+
+error:
+	if (pxLog != NULL) { f_close(pxLog); }
+	return 0;
+}
+
+/**
+ * Delete all files in the manifest.
+ * Free all memory associated with the manifest.
+ */
+void
+free_manifest(Attachment* manifest, uint8_t deleteFiles) {
+	Attachment* next = NULL;
+	while (manifest != NULL) {
+		next = manifest->next;
+
+		/* Delete the file from the SD card. */
+		if (deleteFiles && (f_delete(manifest->name) == F_NO_ERROR)) {
+			trace_printf("skywire_task: removed %s\n", manifest->name);
+		}
+
+		/* Free memory associated with this attachment. */
 		vPortFree(manifest);
+
 		manifest = next;
 	}
 }
 
 /**
  * Use a POST to upload the manifest to the server.
+ * Write slowly until we can support software flow control.
+ *
+ * Each HTTP chunk contains one attachment.
+ * The first 32 bytes of the chunk encode the attachment length and filename.
+ * Therefore, each HTTP chunk length is the attachment length plus 32 bytes.
  */
-void
-post_manifest(ResConfig* res, Manifest* manifest) {
-	if (   skywire_at("AT#SD=1,0,80,\"79ed7953.ngrok.com\"\r\n") != SKYWIRE_OK
-		|| skywire_res(res, pred_ends_with, "CONNECT\r\n")       != SKYWIRE_OK) {
-		trace_printf("http req failed\n");
-	} else {
-		char chunk_header[16] = { 0 }, item_header[32] = { 0 };
-
-		while (skywire_count() > 0) {
-			trace_printf("%c", skywire_getc());
-		}
-
-		// HTTP Header
-		skywire_at("POST /data HTTP/1.1\r\n");
-		skywire_at("Host: 79ed7953.ngrok.com\r\n");
-		skywire_at("Content-Type: application/octet-stream\r\n");
-		skywire_at("Transfer-Encoding: chunked\r\n");
-		skywire_at("Connection: close\r\n\r\n");
-
-		// POST Body
-		while (manifest != NULL) {
-			// Start of chunk.
-			snprintf(chunk_header, 16, "%x\r\n", 32);
-			skywire_at(chunk_header);
-
-			// Manifest header
-			snprintf(item_header, 32, "%s,%d\r\n", manifest->Name, manifest->Size);
-			skywire_write(item_header, 0, 32);
-			skywire_at("\r\n");
-			trace_printf("manifest header: %s", item_header);
-
-			// Write file
-			F_FILE* hManifestItem = f_open(manifest->Name, "r");
-			if (hManifestItem == NULL) {
-				trace_printf("failed to open file");
-				break;
-			} else {
-				/* Start of chunk. */
-				snprintf(chunk_header, 16, "%x\r\n", manifest->Size);
-				skywire_at(chunk_header);
-				trace_printf("chunk: %s", chunk_header);
-
-				uint32_t bytes = 0;
-				while (bytes < manifest->Size) {
-					uint32_t read = f_read(buffer, 1, 128, hManifestItem);
-					bytes += read;
-					skywire_write(buffer, 0, read);
-				}
-				f_close(hManifestItem);
-				hManifestItem = NULL;
-
-				/* End of chunk. */
-				skywire_at("\r\n");
-			}
-
-			manifest = manifest->Next;
-		}
-
-		/* Trailing chunk and termination. */
-		skywire_at("0\r\n\r\n");
-		trace_printf("POST out\n");
+uint8_t
+post_manifest(ATDevice* dev, Attachment* manifest) {
+	if (   hayes_at(dev, "AT#SD=1,0,80,\"" NGROK_TUNNEL "\"\r\n") != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "CONNECT\r\n", 10000)   != HAYES_OK) {
+		trace_printf("skywire_task: open socket data failed\n");
+		return 0;
 	}
+
+	/* Output the HTTP header - specify POST with chunked encoding. */
+	hayes_at(dev,
+			"POST /data HTTP/1.1\r\n" \
+			"Host: " NGROK_TUNNEL "\r\n" \
+			"Content-Type: application/octet-stream\r\n" \
+			"Transfer-Encoding: chunked\r\n" \
+			"Connection: close\r\n\r\n"
+	);
+
+	while (manifest != NULL) {
+		// Write file
+		F_FILE* pxFile = f_open(manifest->name, "r");
+		if (pxFile == NULL) {
+			trace_printf("failed to open file");
+			continue;
+		}
+
+		/* Write the start of the HTTP chunk. */
+		int length = manifest->length;
+		snprintf(dev->buffer, 32, "%x\r\n", 32 +length);
+		hayes_at(dev, dev->buffer);
+
+		/* Write the attachment header. */
+		memset(dev->buffer, '\0', 32);
+		snprintf(dev->buffer, 32, "%s,%d\r\n", manifest->name, length);
+		hayes_write(dev, (uint8_t*)dev->buffer, 0, 32);
+
+		/* Write the attachment. */
+		uint32_t written = 0;
+		while (written < manifest->length) {
+			uint32_t read = f_read(dev->buffer, 1, 128, pxFile);
+			written += read;
+			hayes_write(dev, (uint8_t*)dev->buffer, 0, read);
+		}
+
+		f_close(pxFile);
+		pxFile = NULL;
+
+		/* Write the end of the HTTP chunk. */
+		hayes_at(dev, "\r\n");
+
+		manifest = manifest->next;
+	}
+
+	/* Write the trailing HTTP chunk and termination. */
+	hayes_at(dev, "0\r\n\r\n");
+	return 1;
 }
 
-void
-parse_response(ResConfig* res) {
+// Task ------------------------------------------------------------------------
+
+uint8_t
+parse_response(ATDevice* dev, uint8_t* speedLimit) {
 	/**
 	 * Expect a 200 OK response.
 	 * Skip the headers by looking for "\r\n\r\n".
 	 * Look for no carrier when the connection is closed.
 	 */
-	if (   skywire_res(res, pred_ends_with, "HTTP/1.1 200 OK\r\n") != SKYWIRE_OK
-		|| skywire_res(res, pred_ends_with, "\r\n\r\n")            != SKYWIRE_OK
-		|| skywire_res(res, pred_ends_with, "NO CARRIER\r\n")      != SKYWIRE_OK) {
-		return;
+	if (   hayes_res(dev, pred_ends_with, "200 OK\r\n", 10000)    != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "\r\n\r\n", 2000)       != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "NO CARRIER\r\n", 2000) != HAYES_OK) {
+		return 0;
 	}
 
-	uint8_t sl = 0;
+	int sl = 0;
 	char* line = NULL;
-	while ((line = tokenize_res(res, line)) != NULL) {
+	while ((line = tokenize_res(dev, line)) != NULL) {
 		if (sscanf(line, "SL=%d,EOM", &sl) == 1) {
-			trace_printf("speed limit is %d\n", sl);
+			*speedLimit = sl;
+			return 1;
 		}
 	}
+
+	*speedLimit = 0;
+	return 0;
 }
 
 /**
@@ -307,15 +289,16 @@ parse_response(ResConfig* res) {
  */
 void
 skywire_task(void* pvParameters) {
-	memset(buffer, '\0', 514);
-
-	ResConfig res;
-	res.Buffer = buffer;
-	res.Length = 512;
-	res.Timeout = 10000;
+	/* Prepare an ATDevice to interface with the Skywire modem. */
+	ATDevice dev;
+	dev.api.count = skywire_count;
+	dev.api.getc = skywire_getc;
+	dev.api.write = skywire_write;
+	dev.buffer = buffer;
+	dev.length = 512;
 
 	/* Initialize the peripherals and state for this task. */
-	if (!skywire_task_setup(&res)) {
+	if (!skywire_task_setup(&dev)) {
 		trace_printf("skywire_task: setup failed\n");
 		vTaskDelete(NULL);
 		return;
@@ -323,28 +306,35 @@ skywire_task(void* pvParameters) {
 		trace_printf("skywire_task: started\n");
 	}
 
-	// Enter terminal mode if the user input an ESC key while the task was
-	// starting.
-	skywire_terminal();
-
 	for (;;) {
-		/* Obtain exclusive access to the SD card. */
-		if (xSemaphoreTake(xSpiSemaphore, 0) != pdTRUE) {
+		/* Wait for exclusive access to the SPI bus. */
+		while (!spi_take()) {
 			vTaskDelay(100);
-			continue;
 		}
 
-		// Get a manifest of file to send to the server.
-		Manifest* manifest = get_manifest();
-		if (manifest != NULL) {
-			//trace_printf("got_manifest: %s\n", manifest->Name);
-			post_manifest(&res, manifest);
-			parse_response(&res);
+		/* Get a manifest of files to POST to the server. */
+		Attachment* manifest;
+		uint8_t deleteFiles = 0;
+		if (get_manifest(&manifest)) {
+			/* POST the files in the manifest to the server. */
+			post_manifest(&dev, manifest);
+
+			/* Parse the HTTP response from the server. */
+			SLUpdate slUpdate;
+			if (parse_response(&dev, &slUpdate.limit)) {
+				/* Server returned 200 OK - safe to delete the local data. */
+				deleteFiles = 1;
+
+				/* Post the updated speed limit to the beacon task. */
+				xQueueSend(xSLUpdatesQueue, (void*)&slUpdate, 0);
+			}
 		}
 
-		free_manifest(manifest);
+		/* Delete all of the files POSTed to the server */
+		free_manifest(manifest, deleteFiles);
 
-		xSemaphoreGive(xSpiSemaphore);
+		/* Release exclusive access to the SPI bus. */
+		spi_give();
 
 		// Sleep for 1 minute.
 		vTaskDelay(30000);
