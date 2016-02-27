@@ -20,7 +20,9 @@ extern "C" {
 #define SKYWIRE_TASK_NAME "SKYW"
 #define SKYWIRE_TASK_STACK_SIZE 2586
 
-#define NGROK_TUNNEL "35942d70.ngrok.io"
+
+#define NGROK_TUNNEL "79ed7953.ngrok.com"
+
 
 /* An item to be POSTed to the server. */
 typedef struct _Attachment {

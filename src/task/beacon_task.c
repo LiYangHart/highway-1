@@ -241,7 +241,6 @@ beacon_task(void * pvParameters) {
 		}
 
 		/*after configuring module, want to periodically output transmission
-
 		/**
 		 * The Skywire task will periodically communicate with the MCC.
 		 * When updated SL values are received, they will be communicated to
