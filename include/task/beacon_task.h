@@ -12,10 +12,17 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct _SLUpdate {
+	uint8_t limit;
+} SLUpdate;
+
+extern QueueHandle_t xSLUpdatesQueue;
 
 #define BEACON_TASK_NAME "BEAC"
 #define BEACON_TASK_STACK_SIZE 1024

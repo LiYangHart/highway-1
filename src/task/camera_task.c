@@ -1,45 +1,142 @@
 #include <peripheral/arducam.h>
+#include <peripheral/lps331.h>
+#include <peripheral/hts221.h>
 #include <task/camera_task.h>
 #include <fat_sl.h>
 #include <mdriver_spi_sd.h>
 #include <FreeRTOS.h>
 #include <semphr.h>
+#include <string.h>
 
-SemaphoreHandle_t xSemaphore = NULL;
-uint8_t camera_present = 0;
+uint8_t arduCamInstalled = 0;
+SampleBuffer samples;
+uint16_t dcimIndex = 1;
 
 /**
  * Initialize the peripherals and state for this task.
  */
 uint8_t
 camera_task_setup() {
-	/* Initialize peripherals for this task. */
+	/* Initialize I2C peripherals for this task. */
 	ov5642_init();
 	lps331_init();
 	hts221_init();
 
-	camera_present = arducam_init();
+	/* Intialize SPI peripherals for this task. */
+	spi_take();
+	arduCamInstalled = arducam_init();
 
 	/* Try to mount the SD card. */
 	if (fn_initvolume(mmc_spi_initfunc) != F_NO_ERROR) {
 		trace_printf("sdcard: failed to mount volume\n");
+		spi_give();
 		return 0;
 	}
 
+#ifdef CLEAN_SD_CARD
+	/* Delete DATA.LOG and JPG files from the SD card. */
+	trace_printf("camera_task: cleaning SD card\n");
+	f_delete("DATA.LOG");
+	f_delete("file.txt");
+	F_FIND xFindStruct;
+	if (f_findfirst("*.JPG", &xFindStruct) == F_NO_ERROR) {
+		do {
+			f_delete(xFindStruct.filename);
+		} while (f_findnext(&xFindStruct) == F_NO_ERROR);
+	}
+#endif
+
+	spi_give();
 	return 1; // OK
 }
 
+/**
+ * Open a handle to DATA.LOG.
+ */
+F_FILE*
+open_log() {
+	/* Open a handle to append to the data log. */
+	F_FILE* hLog = f_open("data.log", "a");
+	if (hLog == NULL) {
+		trace_printf("camera_task; failed to open data.log\n");
+	}
+	return hLog;
+}
 
 /**
- * Find the first free filename in the format capN.jpg, where N is an integer
- * equal to or greater than 'start'.
+ * Capture a reading of the sensors into the sample buffer.
+ * Write the sample buffer to the SD card if access is available.
+ */
+void
+capture_sample(TickType_t* lastReading) {
+	trace_printf("reading sensors\n");
+
+	F_FILE* pxLog = NULL;
+
+	/* Record values from each sensor. */
+	Sample* sample = &samples.Buffer[samples.Count];
+	sample->TickCount = xTaskGetTickCount();
+	sample->LPS331Temperature = lps331_read_temp_C();
+	sample->LPS331Pressure = lps331_read_pres_mbar();
+	sample->HTS221Temperature = hts221_read_temp_C();
+	sample->HTS221Humidity = hts221_read_hum_rel();
+
+	/* Successfully collected a sample. */
+	*lastReading = sample->TickCount;
+	samples.Count++;
+
+	/* Try to obtain access to the SD card. */
+	if (!spi_take()) {
+		/* SPI is busy - nothing more to do. */
+		return;
+	}
+
+	/* Open a handle to the data log. */
+	if ((pxLog = open_log()) == NULL) {
+		goto error;
+	}
+
+	/* Write the samples to the data log. */
+	for (uint8_t i = 0; i < samples.Count; ++i) {
+		char* format =
+				"DATA:{\"tick\":%d,"
+				  "{\"lps331\":{\"temp\":%.2f,\"pres\":%.2f}},"
+				  "{\"hts221\":{\"temp\":%.2f,\"hum\":%.2f}}"
+				"}\n";
+
+		char buffer[128];
+		Sample* sample = &samples.Buffer[i];
+		int16_t wrote = snprintf(buffer, 128, format,
+				sample->TickCount,
+				sample->LPS331Temperature,
+				sample->LPS331Pressure,
+				sample->HTS221Temperature,
+				sample->HTS221Humidity);
+
+		f_write(buffer, 1, wrote, pxLog);
+	}
+	f_close(pxLog);
+	pxLog = NULL;
+
+	/* Reset the sample buffer. */
+	samples.Count = 0;
+
+	/* Fall through and clean up. */
+error:
+	if (pxLog != NULL) { f_close(pxLog); };
+	spi_give();
+}
+
+/**
+ * Find the next image name for a JPG capture.
  */
 uint16_t
-getCaptureIndex(char* buffer, uint8_t length, uint16_t start) {
+next_image_name(char* buffer, uint8_t length) {
 	F_FIND xFindStruct;
-	for (int i = start; i < 100; ++i) {
-		snprintf(buffer, length, "cap%d.jpg", i);
+	for (int i = dcimIndex; i < (dcimIndex + 100); ++i) {
+		snprintf(buffer, length, "dcim%d.jpg", i);
 		if (f_findfirst(buffer, &xFindStruct) == F_ERR_NOTFOUND) {
+			dcimIndex = i + 1;
 			return i;
 		}
 	}
@@ -47,9 +144,84 @@ getCaptureIndex(char* buffer, uint8_t length, uint16_t start) {
 }
 
 /**
- * Capture an image to the SD card every 15 seconds.
- * TODO Implement low power mode for the camera, as it gets very warm during
- * extended operation.
+ * Capture an image from the camera to the SD card.
+ */
+void
+capture_image(TickType_t* lastCapture) {
+	F_FILE *pxJpg = NULL, *pxLog = NULL;
+
+	if (!spi_take()) {
+		/* Need exclusive access to the SPI bus. */
+		return;
+	}
+
+	trace_printf("reading camera\n");
+
+	/* Trigger a new capture. */
+	uint32_t remainingBytes;
+	if (   arducam_start_capture()               != DEVICES_OK
+		|| arducam_wait_capture(&remainingBytes) != DEVICES_OK) {
+		trace_printf("camera_task: image capture failed\n");
+		goto error;
+	}
+
+	/* Choose a file name for this image. */
+	char jpgName[32];
+	if (   !next_image_name(jpgName, 32)
+		|| (pxJpg = f_open(jpgName, "w")) == NULL) {
+		trace_printf("camera_task: open JPG failed\n");
+		goto error;
+	}
+
+	/* Copy the JPG image from the camera flash to the SD card. */
+	uint8_t buffer[BURST_READ_LENGTH];
+	uint8_t length = MIN(remainingBytes, BURST_READ_LENGTH);
+	arducam_burst_read(buffer, length);
+	remainingBytes -= length + 1;
+	if (f_write(buffer + 1, 1, (length - 1), pxJpg) != (length - 1)) {
+		trace_printf("camera_task: write to JPG failed\n");
+		goto error;
+	}
+	for (uint16_t i = 0; remainingBytes > 0; ++i) {
+		uint8_t length = MIN(remainingBytes, BURST_READ_LENGTH);
+		arducam_burst_read(buffer, length);
+		remainingBytes -= length;
+		if (f_write(buffer, 1, length, pxJpg) != length) {
+			trace_printf("camera_task: write to JPG failed\n");
+			goto error;
+		}
+	}
+	f_close(pxJpg);
+	pxJpg = NULL;
+
+	/* Open a handle to the data log. */
+	if ((pxLog = open_log()) == NULL) {
+		goto error;
+	}
+
+	/* Write the JPG name to the log. */
+	TickType_t tickTime = xTaskGetTickCount();
+	int8_t wrote = snprintf(buffer, BURST_READ_LENGTH,
+			"FILE:{\"tick\":%d,\"file\":\"%s\"}\n",
+			tickTime, jpgName);
+	f_write(buffer, 1, wrote, pxLog);
+
+	f_close(pxLog);
+	pxLog = NULL;
+
+	/* Successfully captured an image. */
+	*lastCapture = xTaskGetTickCount();
+
+	/* Fall through and clean up. */
+error:
+	if (pxJpg != NULL) { f_close(pxJpg); };
+	if (pxLog != NULL) { f_close(pxLog); };
+	spi_give();
+}
+
+/**
+ * Record sensor data and capture images.
+ * Activity is recorded to DATA.LOG to be picked up by the Skywire task.
  */
 void
 camera_task(void * pvParameters) {
@@ -62,90 +234,28 @@ camera_task(void * pvParameters) {
 		trace_printf("camera_task: started\n");
 	}
 
-	if (!camera_present) {
-		vTaskDelete(NULL);
-		return;
-	}
+	/* Initialize timing for capture sub-tasks. */
+	TickType_t lastReading, lastCapture;
+	lastReading = lastCapture = xTaskGetTickCount();
 
-	const uint8_t BURST_LENGTH = 64;
-	uint8_t buffer[BURST_LENGTH], read;
-	char filename[16];
+	/* Initialize the sample buffer. */
+	samples.Count = 0;
 
-	for (int i = 0;; ++i) {
-		/* Obtain exclusive access to the SD card. */
-		if (xSemaphoreTake(xSpiSemaphore, 0) != pdTRUE) {
-			vTaskDelay(100);
-			continue;
+	for (;;) {
+		TickType_t currentTicks = xTaskGetTickCount();
+
+		if ((currentTicks - lastReading) >= SAMPLE_RATE_MS) {
+			capture_sample(&lastReading);
 		}
 
-		/* Trigger a new capture. */
-		if (arducam_start_capture() != DEVICES_OK) {
-			trace_printf("camera: couldn't start capture\n");
-			break;
-		} else {
-			trace_printf("camera: starting capture\n");
-		}
-
-		/* Wait for the capture to complete. */
-		uint32_t capture_length;
-		if (arducam_wait_capture(&capture_length) != DEVICES_OK) {
-			trace_printf("camera: capture flag not asserted\n");
-			break;
-		} else {
-			trace_printf("camera: captured image is %d bytes\n", capture_length);
-		}
-
-		/* Create an image file on the SD card. */
-		getCaptureIndex(filename, 16, i);
-		F_FILE* hJpeg = f_open(filename, "w");
-		if (hJpeg == NULL) {
-			trace_printf("sdcard: open %s failed\n", filename);
-		} else {
-			trace_printf("sdcard: writing to %s\n", filename);
-		}
-
-		/* Read the first burst and discard the dummy byte. */
-		read = (capture_length > BURST_LENGTH) ? BURST_LENGTH : capture_length;
-		arducam_burst_read(buffer, read);
-		capture_length -= read + 1;
-		if (f_write(buffer + 1, 1, (read - 1), hJpeg) != (read - 1)) {
-			trace_printf("write failed\n");
-			return;
-		}
-
-		/* Read the remaining bytes. */
-		while (capture_length > 0) {
-			read = (capture_length > BURST_LENGTH) ? BURST_LENGTH : capture_length;
-			arducam_burst_read(buffer, read);
-			capture_length -= read;
-			if (f_write(buffer, 1, read, hJpeg) != read) {
-				trace_printf("write failed\n");
+		if (arduCamInstalled) {
+			if ((currentTicks - lastCapture) >= IMAGE_RATE_MS) {
+				capture_image(&lastCapture);
 			}
 		}
 
-		/* Close the image file. */
-		if (f_close(hJpeg) != F_NO_ERROR) {
-			trace_printf("close() failed\n");
-		}
-
-		trace_printf("capture complete\n");
-
-		xSemaphoreGive(xSpiSemaphore);
-
-		vTaskDelay(30000);
+		vTaskDelay(100);
 	}
+
 }
 
-
-/*
- *	trace_printf("lps331: %.2f degC %.2f mbar\n",
-				lps331_read_temp_C(),
-				lps331_read_pres_mbar());
-
-	trace_printf("hts221: %.2f degC %.2f %%rH\n",
-			hts221_read_temp_C(),
-			hts221_read_hum_rel());
-
-	trace_printf("stlm75: %.2f degC\n",
-			stlm75_read_temp_C());
- */

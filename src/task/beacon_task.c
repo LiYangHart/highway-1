@@ -2,11 +2,16 @@
 #include <task/beacon_task.h>
 #include "diag/Trace.h"
 
+QueueHandle_t xSLUpdatesQueue;
+
 /**
  * Initialize the peripherals and state for this task.
  */
 uint8_t
 beacon_task_setup() {
+	/* Create an IPC queue to receive updates from the Skywire task. */
+	xSLUpdatesQueue = xQueueCreate( 10, sizeof(SLUpdate));
+
 	/* Initialize the UART to communicate with the XBee radio. */
 	xbee_init();
 
@@ -28,6 +33,11 @@ beacon_task(void * pvParameters) {
 	}
 
 	for (;;) {
+		SLUpdate slUpdate;
+		if (xQueueReceive(xSLUpdatesQueue, &slUpdate, 0) == pdTRUE) {
+			trace_printf("beacon task: SL = %d\n", slUpdate.limit);
+		}
+
 		/**
 		 * TODO The Skywire task will periodically communicate with the MCC.
 		 * When updated SL values are received, they will be communicated to
