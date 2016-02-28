@@ -20,6 +20,7 @@ void xbee_init();
 uint8_t xbee_count();
 uint8_t xbee_getc();
 uint8_t xbee_read(uint8_t* buffer, uint8_t position, uint8_t length);
+uint8_t xbee_write(uint8_t* buffer, uint8_t length);
 
 #ifdef __cplusplus
 }

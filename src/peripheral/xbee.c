@@ -29,7 +29,7 @@ xbee_init() {
 	__HAL_RCC_USART6_CLK_ENABLE();
 	xbee.huart.Instance = USART6;
 	xbee.huart.State = HAL_UART_STATE_RESET;
-	xbee.huart.Init.BaudRate = 115200;
+	xbee.huart.Init.BaudRate = 9600;
 	xbee.huart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	xbee.huart.Init.Mode = UART_MODE_TX_RX;
 	xbee.huart.Init.WordLength = UART_WORDLENGTH_8B;
