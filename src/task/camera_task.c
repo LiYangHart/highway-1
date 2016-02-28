@@ -100,8 +100,8 @@ capture_sample(TickType_t* lastReading) {
 	for (uint8_t i = 0; i < samples.Count; ++i) {
 		char* format =
 				"DATA:{\"tick\":%d,"
-				  "{\"lps331\":{\"temp\":%.2f,\"pres\":%.2f}},"
-				  "{\"hts221\":{\"temp\":%.2f,\"hum\":%.2f}}"
+				  "\"lps331\":{\"temp\":%.2f,\"pres\":%.2f},"
+				  "\"hts221\":{\"temp\":%.2f,\"hum\":%.2f}"
 				"}\n";
 
 		char buffer[128];
