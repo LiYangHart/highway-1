@@ -1,6 +1,8 @@
 #include <peripheral/arducam.h>
 #include <peripheral/i2c_spi_bus.h>
 #include "diag/Trace.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 /* ArduChip ----------------------------------------------------------------- */
 
