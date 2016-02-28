@@ -207,6 +207,8 @@ post_manifest(ATDevice* dev, Attachment* manifest) {
 		return 0;
 	}
 
+	trace_printf("skywire_task: starting POST\n");
+
 	/* Output the HTTP header - specify POST with chunked encoding. */
 	hayes_at(dev,
 			"POST /data HTTP/1.1\r\n" \
@@ -268,6 +270,7 @@ parse_response(ATDevice* dev, uint8_t* speedLimit) {
 	if (   hayes_res(dev, pred_ends_with, "200 OK\r\n", 10000)    != HAYES_OK
 		|| hayes_res(dev, pred_ends_with, "\r\n\r\n", 2000)       != HAYES_OK
 		|| hayes_res(dev, pred_ends_with, "NO CARRIER\r\n", 2000) != HAYES_OK) {
+		trace_printf("skywire_task: response not as expected\n");
 		return 0;
 	}
 
@@ -317,16 +320,16 @@ skywire_task(void* pvParameters) {
 		uint8_t deleteFiles = 0;
 		if (get_manifest(&manifest)) {
 			/* POST the files in the manifest to the server. */
-			post_manifest(&dev, manifest);
+			if (post_manifest(&dev, manifest)) {
+				/* Parse the HTTP response from the server. */
+				SLUpdate slUpdate;
+				if (parse_response(&dev, &slUpdate.limit)) {
+					/* Server returned 200 OK - safe to delete the local data. */
+					deleteFiles = 1;
 
-			/* Parse the HTTP response from the server. */
-			SLUpdate slUpdate;
-			if (parse_response(&dev, &slUpdate.limit)) {
-				/* Server returned 200 OK - safe to delete the local data. */
-				deleteFiles = 1;
-
-				/* Post the updated speed limit to the beacon task. */
-				xQueueSend(xSLUpdatesQueue, (void*)&slUpdate, 0);
+					/* Post the updated speed limit to the beacon task. */
+					xQueueSend(xSLUpdatesQueue, (void*)&slUpdate, 0);
+				}
 			}
 		}
 
