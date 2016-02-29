@@ -37,10 +37,10 @@ beacon_task(void * pvParameters) {
 	char text_end[7] = " km/hr\0";
 	char speed_string[4];
 	char speed_cat[4];
-	char send_string[13];
+	char send_string[14];
 	char zero_one[2] = "0\0";
 	char zero_two[3] = "00\0";
-	char zero_three[4] = "000\0";
+	char dollar[2]= "$\0";
 
 	/* Initialize the peripherals and state for this task. */
 	if (!beacon_task_setup()) {
@@ -483,8 +483,9 @@ as test to see if it is picked up */
 			SLUpdate slUpdate;
 			if (xQueueReceive(xSLUpdatesQueue, &slUpdate, 0) == pdTRUE) {
 				trace_printf("beacon task: SL = %d\n", slUpdate.limit);
-				speed = slUpdate.limit;
+				speed = (int)slUpdate.limit;
 			}
+
 			//check that speed limit value is within limits.  If not, use previous
 			if (speed >= l_limit && speed <= u_limit) {
 				snprintf(speed_string, 4, "%d", speed);
@@ -515,12 +516,13 @@ as test to see if it is picked up */
 
 			trace_printf("concatenated speed value \n");
 			trace_printf("%s \n", speed_cat);
-			//construct phrase to be sent
+			//construct phrase to be sent, '$' sign on end to avoid passing along junk
 			strcat(send_string, text_start);
 			strcat(send_string, speed_cat);
 			strcat(send_string, text_end);
+			strcat(send_string, dollar);
 			trace_printf("Sending phrase: %s", send_string);
-			xbee_write((uint8_t*)send_string, 13);
+			xbee_write((uint8_t*)send_string, 14);
 			trace_printf("\n");
 			//incrementing speed value for test
 			//speed++;
