@@ -278,12 +278,14 @@ parse_response(ATDevice* dev, uint8_t* speedLimit) {
 	char* line = NULL;
 	while ((line = tokenize_res(dev, line)) != NULL) {
 		if (sscanf(line, "SL=%d,EOM", &sl) == 1) {
-			*speedLimit = sl;
-			return 1;
+			//adding line to see if incoming SL value is good
+			if (sl >= 1 && sl <= 255){
+				*speedLimit = sl;
+				return 1;
+			}
 		}
 	}
-
-	*speedLimit = 0;
+	*speedLimit = 100;
 	return 0;
 }
 
