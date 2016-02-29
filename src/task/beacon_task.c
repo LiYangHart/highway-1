@@ -267,7 +267,6 @@ beacon_task(void * pvParameters) {
 				trace_printf("beacon task: SL = %d\n", slUpdate.limit);
 				speed = (int)slUpdate.limit;
 			}
-
 			//check that speed limit value is within limits.  If not, use previous
 			if (speed >= l_limit && speed <= u_limit) {
 				snprintf(speed_string, 4, "%d", speed);
