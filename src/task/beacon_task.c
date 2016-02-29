@@ -29,8 +29,8 @@ beacon_task(void * pvParameters) {
 	int transmit = 1;
 
 	//speed used to hold speed value to transmit through xbee and set constants for string construction
-	int speed = 10;
-	int prev_speed = 10;
+	int speed = 100;
+	int prev_speed = 100;
 	int u_limit = 255;
 	int l_limit = 1;
 	char text_start[5] = "SL: \0";
@@ -457,10 +457,7 @@ beacon_task(void * pvParameters) {
 check for received characters.  For now, just going to send out constant message
 as test to see if it is picked up */
 	for (;;) {
-		SLUpdate slUpdate;
-		if (xQueueReceive(xSLUpdatesQueue, &slUpdate, 0) == pdTRUE) {
-			trace_printf("beacon task: SL = %d\n", slUpdate.limit);
-		}
+
 
 		/**
 		 * TODO The Skywire task will periodically communicate with the MCC.
@@ -483,6 +480,11 @@ as test to see if it is picked up */
 			//convert integer speed value to string and pad if needed
 			trace_printf("Constructing string \n");
 
+			SLUpdate slUpdate;
+			if (xQueueReceive(xSLUpdatesQueue, &slUpdate, 0) == pdTRUE) {
+				trace_printf("beacon task: SL = %d\n", slUpdate.limit);
+				speed = slUpdate.limit;
+			}
 			//check that speed limit value is within limits.  If not, use previous
 			if (speed >= l_limit && speed <= u_limit) {
 				snprintf(speed_string, 4, "%d", speed);
@@ -521,7 +523,7 @@ as test to see if it is picked up */
 			xbee_write((uint8_t*)send_string, 13);
 			trace_printf("\n");
 			//incrementing speed value for test
-			speed++;
+			//speed++;
 		}
 
 		//if module is receiver, check for incoming data on buffer periodically

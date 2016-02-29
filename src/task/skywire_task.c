@@ -267,9 +267,9 @@ parse_response(ATDevice* dev, uint8_t* speedLimit) {
 	 * Skip the headers by looking for "\r\n\r\n".
 	 * Look for no carrier when the connection is closed.
 	 */
-	if (   hayes_res(dev, pred_ends_with, "200 OK\r\n", 10000)    != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "\r\n\r\n", 2000)       != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "NO CARRIER\r\n", 2000) != HAYES_OK) {
+	if (   hayes_res(dev, pred_ends_with, "200 OK\r\n", 20000)    != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "\r\n\r\n", 10000)       != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "NO CARRIER\r\n", 10000) != HAYES_OK) {
 		trace_printf("skywire_task: response not as expected\n");
 		return 0;
 	}
