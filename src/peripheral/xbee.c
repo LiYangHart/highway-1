@@ -77,10 +77,7 @@ xbee_read(uint8_t* buffer, uint8_t position, uint8_t length) {
 	return dma_serial_read(&xbee, buffer, position, length);
 }
 
-uint8_t
-xbee_write(uint8_t* buffer, uint8_t length) {
-	if (HAL_UART_Transmit(xbee_handle(), buffer, length, 1000) == HAL_OK) {
-		return length;
-	}
-	return 0;
+Xbee_StatusTypeDef
+xbee_write(uint8_t* buffer, uint8_t start, uint8_t length) {
+	return HAL_UART_Transmit(xbee_handle(), buffer + start, length, 1000);
 }
