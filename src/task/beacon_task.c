@@ -214,7 +214,9 @@ beacon_task(void * pvParameters) {
 
 		//first, check to see if configuration has been done properly
 		if (set_up_okay == 0){
-			//call function to configure transmitting xbee module
+			//call function to configure transmitting xbee module as well as configuring serial just in case
+			xbee_init();
+
 			if(!xbee_transmit_setup(&xbee_transmit)){
 				trace_printf("Xbee configuration failed, try again\n");
 			}
