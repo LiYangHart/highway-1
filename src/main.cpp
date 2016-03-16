@@ -13,11 +13,14 @@
 #include <task/skywire_task.h>
 #include <task/beacon_task.h>
 #include <task/camera_task.h>
+#include <task/receive_task.h>
 
 /* Enable or disable tasks for development. */
-#define SKYWIRE_TASK 1
-#define BEACON_TASK 1
-#define CAMERA_TASK 1
+#define SKYWIRE_TASK 0
+#define BEACON_TASK 0
+#define CAMERA_TASK 0
+#define RECEIVE_TASK 1
+
 
 void
 setup_task(void * pvParameters) {
@@ -54,6 +57,16 @@ setup_task(void * pvParameters) {
 	xTaskCreate(skywire_task,
 			SKYWIRE_TASK_NAME,
 			SKYWIRE_TASK_STACK_SIZE,
+			(void *)NULL,
+			tskIDLE_PRIORITY,
+			NULL);
+	#endif
+
+	#if RECEIVE_TASK
+	trace_printf("starting receiver task\n");
+	xTaskCreate(receive_task,
+			RECEIVE_TASK_NAME,
+			RECEIVE_TASK_STACK_SIZE,
 			(void *)NULL,
 			tskIDLE_PRIORITY,
 			NULL);
