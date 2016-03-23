@@ -75,6 +75,18 @@ xbee_receive_setup(ATDevice* xbee_receive) {
 		trace_printf("Configuration commands run \n");
 	}
 
+	//after doing general configuration, set up encryption parameters
+	if(hayes_at(xbee_receive, "ATEE1\r")							!= HAYES_OK
+		||hayes_res(xbee_receive, pred_ends_with, "OK\r", 1500)		!= HAYES_OK
+		||hayes_at(xbee_receive, "ATKY00112233445566778899AABBCCDDEEFF\r")	!= HAYES_OK
+		||hayes_res(xbee_receive, pred_ends_with, "OK\r", 1500)					!= HAYES_OK) {
+		trace_printf("Setting encryption failed \n");
+		return 0;
+	}
+
+	else{
+		trace_printf("Encryption set okay \n");
+	}
 	//after sending commands out, want to read back a few values
 	//if not as expected, send command to correct
 
@@ -353,6 +365,6 @@ receive_task(void * pvParameters) {
 			error = 0;
 			set_up_okay = 0;
 		}
-		vTaskDelay(2000);
+		vTaskDelay(1500);
 	}
 }
