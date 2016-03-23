@@ -39,7 +39,7 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 	//note that current settings are for transmitter, carriage return '\r' needed on end of command strings
 	//setting parameters first, will read back certain critical ones after
 
-	if (hayes_at(xbee_transmit, "ATPL0\r")							!= HAYES_OK
+	if (hayes_at(xbee_transmit, "ATPL1\r")							!= HAYES_OK
 		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATCE2\r")						!= HAYES_OK
 		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
@@ -71,6 +71,18 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 		trace_printf("Configuration commands run \n");
 	}
 
+	//after setting other parameters, configure encryption
+	if(hayes_at(xbee_transmit, "ATEE1\r")										!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)				!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATKY0000112233445566778899AABBCCEEFF\r")		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)				!= HAYES_OK) {
+		trace_printf("Configuring encryption failed \n");
+		return 0;
+	}
+
+	else {
+		trace_printf("Encryption set okay \n");
+	}
 	//after sending commands out, want to read back a few values
 	//if not as expected, send command to correct
 
@@ -120,7 +132,7 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 
 	//double check power and destination address fields
 	if (hayes_at(xbee_transmit, "ATPL\r")										!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 1200)				!= HAYES_OK ){
+		||hayes_res(xbee_transmit, pred_ends_with, "1\r", 1200)				!= HAYES_OK ){
 		trace_printf("Error in checking power level \n");
 		return 0;
 	}
@@ -303,6 +315,7 @@ beacon_task(void * pvParameters) {
 			//otherwise, reset error count
 			else {
 				error_count = 0;
+				speed++;
 			}
 
 			//if error count exceeds threshold, set back to 0 and flag module to be re-configured
