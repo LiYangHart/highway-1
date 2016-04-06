@@ -11,6 +11,7 @@
 uint8_t arduCamInstalled = 0;
 SampleBuffer samples;
 uint16_t dcimIndex = 1;
+uint8_t gpio_regval = 0;
 
 /**
  * Initialize the peripherals and state for this task.
@@ -225,6 +226,9 @@ error:
  */
 void
 camera_task(void * pvParameters) {
+
+	int low_pow = 0;
+
 	/* Initialize the peripherals and state for this task. */
 	if (!camera_task_setup()) {
 		trace_printf("camera_task: setup failed\n");
@@ -248,14 +252,38 @@ camera_task(void * pvParameters) {
 			capture_sample(&lastReading);
 		}
 
+		//point at which image is captured from camera
 		if (arduCamInstalled) {
 			if ((currentTicks - lastCapture) >= IMAGE_RATE_MS) {
-				capture_image(&lastCapture);
+				//if camera is currently in low power mode, exit low power mode before taking image
+				if (low_pow == 1){
+					if(arducam_low_power_remove() != DEVICES_OK){
+						trace_printf("Error removing low power mode \n");
+					}
+					else{
+						low_pow = 0;
+					}
+				}
+
+				//only try taking image if low power has been properly disabled
+				if (low_pow == 0){
+					capture_image(&lastCapture);
+				}
+
+				//after image has been taken, put camera down into low-power mode
+				if (low_pow == 0){
+					if(arducam_low_power_set() != DEVICES_OK){
+						trace_printf("Error setting low power mode \n");
+					}
+					else{
+						trace_printf("Low power mode set \n");
+						low_pow = 1;
+					}
+				}
 			}
+
+			vTaskDelay(100);
 		}
 
-		vTaskDelay(100);
 	}
-
 }
-
