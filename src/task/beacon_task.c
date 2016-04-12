@@ -39,7 +39,7 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 	//note that current settings are for transmitter, carriage return '\r' needed on end of command strings
 	//setting parameters first, will read back certain critical ones after
 
-	if (hayes_at(xbee_transmit, "ATPL3\r")							!= HAYES_OK
+	if (hayes_at(xbee_transmit, "ATPL0\r")							!= HAYES_OK
 		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATCE2\r")						!= HAYES_OK
 		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
@@ -132,7 +132,7 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 
 	//double check power and destination address fields
 	if (hayes_at(xbee_transmit, "ATPL\r")										!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "3\r", 1200)				!= HAYES_OK ){
+		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 1200)				!= HAYES_OK ){
 		trace_printf("Error in checking power level \n");
 		return 0;
 	}
@@ -212,6 +212,7 @@ beacon_task(void * pvParameters) {
 	char dollar[2]= "$\0";
 
 	/* Initialize the peripherals and state for this task. */
+	trace_printf("Update check \n");
 	if (!beacon_task_setup()) {
 		trace_printf("beacon_task: setup failed\n");
 		vTaskDelete(NULL);
