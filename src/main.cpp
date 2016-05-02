@@ -9,20 +9,24 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
 
+#include <task/watchdog_task.h>
 #include <task/skywire_task.h>
 #include <task/beacon_task.h>
 #include <task/camera_task.h>
 #include <task/receive_task.h>
 
 /* Enable or disable tasks for development. */
-#define SKYWIRE_TASK 0
-#define BEACON_TASK 1
-#define CAMERA_TASK 0
-#define RECEIVE_TASK 0
+#define WATCHDOG_TASK 1
+#define SKYWIRE_TASK 1
+#define BEACON_TASK 0
+#define CAMERA_TASK 1
 
 void
 setup_task(void * pvParameters) {
+	Msg msg;
+
 	/* Initialize the I2C bus. */
 	trace_printf("initialize I2C bus\n");
 	i2c_bus_init();
@@ -30,6 +34,11 @@ setup_task(void * pvParameters) {
 	/* Initialize the SPI bus. */
 	trace_printf("initialize SPI bus\n");
 	spi_bus_init();
+
+	#if WATCHDOG_TASK
+	trace_printf("starting watchdog task\n");
+	watchdog_task_create();
+	#endif
 
 	#if BEACON_TASK
 	trace_printf("starting beacon task\n");
@@ -43,22 +52,12 @@ setup_task(void * pvParameters) {
 
 	#if CAMERA_TASK
 	trace_printf("starting camera task\n");
-	xTaskCreate(camera_task,
-				CAMERA_TASK_NAME,
-				CAMERA_TASK_STACK_SIZE,
-				(void *)NULL,
-				tskIDLE_PRIORITY,
-				NULL);
+	camera_task_create();
 	#endif
 
 	#if SKYWIRE_TASK
 	trace_printf("starting skywire task\n");
-	xTaskCreate(skywire_task,
-			SKYWIRE_TASK_NAME,
-			SKYWIRE_TASK_STACK_SIZE,
-			(void *)NULL,
-			tskIDLE_PRIORITY,
-			NULL);
+	skywire_task_create();
 	#endif
 
 	#if RECEIVE_TASK

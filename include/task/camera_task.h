@@ -12,10 +12,18 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "timers.h"
+
+#include "msg.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define CAMERA_TASK_NAME "CAMR"
+#define CAMERA_TASK_STACK_SIZE 2048
+
+extern QueueHandle_t xCameraQueue;
 
 typedef struct _Sample {
 	TickType_t TickCount;
@@ -32,9 +40,6 @@ typedef struct _SampleBuffer {
 
 #define MIN(a,b) ((a)<(b)?(a):(b))
 
-#define CAMERA_TASK_NAME "CAMR"
-#define CAMERA_TASK_STACK_SIZE 2048
-
 #define SAMPLE_RATE_MS 5000
 #define IMAGE_RATE_MS 30000
 
@@ -43,7 +48,7 @@ typedef struct _SampleBuffer {
 /* Program will delete DATA.LOG and JPG files at boot if defined. */
 #define CLEAN_SD_CARD
 
-void camera_task(void * pvParameters);
+uint8_t camera_task_create();
 
 #ifdef __cplusplus
 }

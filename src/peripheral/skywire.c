@@ -86,9 +86,6 @@ skywire_init() {
  *
  * This requires a pulse of 1s < HOLD_TIME < 2s to be applied to ON_OFF.
  * The modem may not respond to commands for up to 15 seconds.
- *
- * Must be called from a FreeRTOS task. The task will be blocked for the
- * duration of the initialization sequence.
  */
 void
 skywire_activate() {
@@ -100,9 +97,6 @@ skywire_activate() {
 	skywire_en(GPIO_PIN_SET);
 	vTaskDelay(1500 / portTICK_PERIOD_MS);
 	skywire_en(GPIO_PIN_RESET);
-
-	/* The modem will not respond to any AT commands for 15 seconds. */
-	vTaskDelay(16000 / portTICK_PERIOD_MS);
 }
 
 uint8_t

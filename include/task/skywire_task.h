@@ -17,6 +17,8 @@
 extern "C" {
 #endif
 
+extern QueueHandle_t xSkywireQueue;
+
 #define SKYWIRE_TASK_NAME "SKYW"
 #define SKYWIRE_TASK_STACK_SIZE 2586
 
@@ -29,7 +31,7 @@ typedef struct _Attachment {
 	struct _Attachment* next;
 } Attachment;
 
-void skywire_task(void * pvParameters);
+uint8_t skywire_task_create();
 
 #ifdef __cplusplus
 }

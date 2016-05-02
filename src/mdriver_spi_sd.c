@@ -258,6 +258,7 @@ spi_sd_init_card(MMC_SD_MDriver* spi_sd_mdriver) {
 		 **/
 		if (spi_sd_acmd41_loop(spi_sd_mdriver, 0x00000000, 64) == SPI_SD_OK) {
 			/* Card is SDv1.0 */
+			spi_release(SLAVE_SDCARD);
 			break;
 		}
 		/* Fall through and attempt MMC initialization. */

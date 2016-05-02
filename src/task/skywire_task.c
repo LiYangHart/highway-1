@@ -1,37 +1,217 @@
 #include <peripheral/skywire.h>
 #include <peripheral/virtual_com.h>
 #include <peripheral/i2c_spi_bus.h>
-#include <task/skywire_task.h>
-#include <task/beacon_task.h>
+#include "task/watchdog_task.h"
+#include "task/skywire_task.h"
+#include "task/beacon_task.h"
 #include <hayes.h>
 #include <stdio.h>
 #include <string.h>
 #include <fat_sl.h>
 #include "diag/Trace.h"
 
-/* Buffer for the Skywire modem communication. */
+/* Function prototypes. */
+void skywire_task(void * pvParameters);
+void skywire_timer_elapsed(TimerHandle_t xTimer);
+uint8_t skywire_task_setup();
+uint8_t skywire_task_activate();
+uint8_t skywire_task_config();
+uint8_t skywire_task_pdp_enable();
+uint8_t skywire_task_transmit();
+
+/* Variables and handles. */
+QueueHandle_t xSkywireQueue;
+TimerHandle_t xSkywireTimer;
+ATDevice dev;
 char buffer[512];
 
 /**
- * Activate the PDP context for socket communication with the Internet.
+ * Create the Skywire task.
  */
 uint8_t
-activate_pdp_context(ATDevice* dev) {
+skywire_task_create() {
+	/* Create a message loop for this task. */
+	xSkywireQueue = xQueueCreate(10, sizeof(Msg));
+	if (xSkywireQueue == NULL) goto error;
+
+	/* Timer used to schedule delayed state transitions. */
+	xSkywireTimer = xTimerCreate("Skywire", 1000, pdFALSE, (void*)0,
+			skywire_timer_elapsed);
+	if (xSkywireTimer == NULL) goto error;
+
+	/* Create the task. */
+	if (xTaskCreate(skywire_task, SKYWIRE_TASK_NAME, SKYWIRE_TASK_STACK_SIZE,
+		(void *)NULL, tskIDLE_PRIORITY, NULL) != pdPASS) goto error;
+
+	/* Prepare an ATDevice to interface with the Skywire modem. */
+	dev.api.count = skywire_count;
+	dev.api.getc = skywire_getc;
+	dev.api.write = skywire_write;
+	dev.buffer = buffer;
+	dev.length = 512;
+
+	/* Setup the Skywire hardware. */
+	Msg msg;
+	msg.message = MSG_SKYWIRE_SETUP;
+	xQueueSend(xSkywireQueue, &msg, 0);
+
+	trace_printf("skywire_task: create task success\n");
+	return 1;
+
+error:
+	trace_printf("skywire_task: create task failed\n");
+	return 0;
+}
+
+/**
+ * Timer callback to initiate state transitions.
+ */
+void
+skywire_timer_elapsed(TimerHandle_t xTimer) {
+	Msg msg;
+	/* The message to send is stored in the timer ID. */
+	msg.message = (uint32_t)pvTimerGetTimerID(xTimer);
+	msg.param1 = 0;
+	xQueueSend(xSkywireQueue, &msg, 0);
+}
+
+/**
+ * Communicate with the server.
+ */
+void
+skywire_task(void* pvParameters __attribute__((unused))) {
+	for (;;) {
+		Msg msg;
+		/* Block until messages are received. */
+		if (xQueueReceive(xSkywireQueue, &msg, portMAX_DELAY) != pdTRUE) {
+			continue;
+		}
+		switch (msg.message) {
+		case MSG_IWDG_PING:
+			/* Respond to the ping from the watchdog task. */
+			msg.message = MSG_IWDG_PONG;
+			xQueueSend(xWatchdogQueue, &msg, 0);
+			break;
+		case MSG_SKYWIRE_SETUP:
+			/* Setup the peripherals used by this task. */
+			skywire_task_setup();
+			break;
+		case MSG_SKYWIRE_ACTIVATE:
+			/* Activate/power-up the modem. */
+			skywire_task_activate();
+			break;
+		case MSG_SKYWIRE_CONFIG:
+			skywire_task_config();
+			break;
+		case MSG_SKYWIRE_PDP_ENABLE:
+			/* Connect to the cellular network. */
+			skywire_task_pdp_enable();
+			break;
+		case MSG_SKYWIRE_XMIT:
+			skywire_task_transmit();
+			break;
+		}
+	}
+}
+
+// -----------------------------------------------------------------------------
+
+/**
+ * Initialize the peripherals for this task.
+ */
+uint8_t
+skywire_task_setup() {
+	trace_printf("skywire_task: setup\n");
+
+	vcp_init();
+	skywire_init();
+
+	/* Try to activate the Skywire modem. */
+	Msg msg;
+	msg.message = MSG_SKYWIRE_ACTIVATE;
+	xQueueSend(xSkywireQueue, &msg, 0);
+
+	return 1;
+}
+
+/**
+ * Execute the modem's power-on sequence.
+ */
+uint8_t
+skywire_task_activate() {
+	trace_printf("skywire_task: activating...\n");
+
+	/* Execute the activation sequence. */
+	/* This will block for about 2 seconds. */
+	skywire_activate();
+
+	/* The Skywire will not respond for at least 15 seconds. */
+	xTimerChangePeriod(xSkywireTimer, 15000, 0);
+	vTimerSetTimerID(xSkywireTimer, MSG_SKYWIRE_CONFIG);
+	xTimerStart(xSkywireTimer, 0);
+
+	return 1;
+}
+
+/**
+ * Configure the modem after power-on.
+ */
+uint8_t
+skywire_task_config() {
+	trace_printf("skywire_task: configuring...\n");
+
+	/**
+	 * Disable echo.
+	 * Disable flow control.
+	 */
+	if (   hayes_at(&dev, "ATE0\r\n")                      != HAYES_OK
+		|| hayes_res(&dev, pred_ends_with, "OK\r\n", 1000) != HAYES_OK
+		|| hayes_at(&dev, "AT&K=0\r\n")                    != HAYES_OK
+		|| hayes_res(&dev, pred_ends_with, "OK\r\n", 1000) != HAYES_OK) {
+		trace_printf("skywire_task: stage1 failed\n");
+		goto error;
+	}
+
+	/* Connect to the cellular network. */
+	Msg msg;
+	msg.message = MSG_SKYWIRE_PDP_ENABLE;
+	xQueueSend(xSkywireQueue, &msg, 0);
+
+	trace_printf("skywire_task: configure success\n");
+	return 0;
+
+error:
+	trace_printf("skywire_task: configure failed\n");
+
+	/* Start the activation workflow from the beginning. */
+	xTimerChangePeriod(xSkywireTimer, 15000, 0);
+	vTimerSetTimerID(xSkywireTimer, MSG_SKYWIRE_ACTIVATE);
+	xTimerStart(xSkywireTimer, 0);
+	return 1;
+}
+
+/**
+ * Activate a PDP context such that IP connections can be created.
+ */
+uint8_t
+skywire_task_pdp_enable() {
+	trace_printf("skywire_task: PDP context enable...\n");
+
 	/**
 	 * Check the state of PDP context 1.
 	 */
-	if (   hayes_at(dev, "AT#SGACT?\r\n")                 != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "OK\r\n", 1000) != HAYES_OK) {
+	if (   hayes_at(&dev, "AT#SGACT?\r\n")                 != HAYES_OK
+		|| hayes_res(&dev, pred_ends_with, "OK\r\n", 1000) != HAYES_OK) {
 		return 0;
 	} else {
 		int cid, stat;
 		char* line = NULL;
-		while ((line = tokenize_res(dev, line)) != NULL) {
+		while ((line = tokenize_res(&dev, line)) != NULL) {
 			/* Look for the state of PDP context 1. */
 			if ((sscanf(line, "#SGACT: %d,%d", &cid, &stat) == 2) && (cid == 1)) {
 				if (stat == 1) {
 					/* Context is already active. */
-					return 1;
+					goto success;
 				} else {
 					/* Proceed to activation step. */
 					break;
@@ -44,46 +224,38 @@ activate_pdp_context(ATDevice* dev) {
 	 * Input the APN for the Rogers network.
 	 * Activate PDP context 1.
 	 */
-	if (   hayes_at(dev, "AT+CGDCONT=1,\"IP\",\"internet.com\"\r\n") != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "OK\r\n", 1000)            != HAYES_OK
-		|| hayes_at(dev, "AT#SGACT=1,1\r\n")                         != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "OK\r\n", 10000)           != HAYES_OK) {
-		return 0;
+	if (   hayes_at(&dev, "AT+CGDCONT=1,\"IP\",\"internet.com\"\r\n") != HAYES_OK
+		|| hayes_res(&dev, pred_ends_with, "OK\r\n", 1000)            != HAYES_OK
+		|| hayes_at(&dev, "AT#SGACT=1,1\r\n")                         != HAYES_OK
+		|| hayes_res(&dev, pred_ends_with, "OK\r\n", 10000)           != HAYES_OK) {
+		goto error;
 	}
 
+success:
+	trace_printf("skywire_task: PDP enable success\n");
 	return 1;
+
+error:
+	trace_printf("skywire_task: PDP enable failed\n");
+
+	/* Start the activation workflow from the beginning. */
+	xTimerChangePeriod(xSkywireTimer, 15000, 0);
+	vTimerSetTimerID(xSkywireTimer, MSG_SKYWIRE_ACTIVATE);
+	xTimerStart(xSkywireTimer, 0);
+	return 0;
 }
 
 /**
- * Initialize the peripherals and state for this task.
+ * Transmit the SD card contents to the server.
  */
 uint8_t
-skywire_task_setup(ATDevice* dev) {
-	vcp_init();
-	skywire_init();
+skywire_task_transmit() {
+	trace_printf("skywire_task: transmit\n");
 
-	/* Execute the activation sequence - this takes about 15 seconds but is
-	   required to enable the Skywire modem. */
-	skywire_activate();
-
-	/**
-	 * Disable echo.
-	 * Disable flow control.
-	 */
-	if (   hayes_at(dev, "ATE0\r\n")                      != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "OK\r\n", 1000) != HAYES_OK
-		|| hayes_at(dev, "AT&K=0\r\n")                    != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "OK\r\n", 1000) != HAYES_OK) {
-		trace_printf("skywire_task: stage1 failed\n");
-		return 0;
-	}
-
-	if (!activate_pdp_context(dev)) {
-		trace_printf("skywire_task: failed to activate PDP 1\n");
-		return 0;
-	}
-
-	return 1; // OK
+	xTimerChangePeriod(xSkywireTimer, 20000, 0);
+	vTimerSetTimerID(xSkywireTimer, MSG_SKYWIRE_XMIT);
+	xTimerStart(xSkywireTimer, 0);
+	return 1;
 }
 
 // POST manifest ---------------------------------------------------------------
@@ -288,60 +460,3 @@ parse_response(ATDevice* dev, uint8_t* speedLimit) {
 	return 0;
 }
 
-/**
- *
- */
-void
-skywire_task(void* pvParameters) {
-	/* Prepare an ATDevice to interface with the Skywire modem. */
-	ATDevice dev;
-	dev.api.count = skywire_count;
-	dev.api.getc = skywire_getc;
-	dev.api.write = skywire_write;
-	dev.buffer = buffer;
-	dev.length = 512;
-
-	/* Initialize the peripherals and state for this task. */
-	if (!skywire_task_setup(&dev)) {
-		trace_printf("skywire_task: setup failed\n");
-		vTaskDelete(NULL);
-		return;
-	} else {
-		trace_printf("skywire_task: started\n");
-	}
-
-	for (;;) {
-		/* Wait for exclusive access to the SPI bus. */
-		while (!spi_take()) {
-			vTaskDelay(100);
-		}
-
-		/* Get a manifest of files to POST to the server. */
-		Attachment* manifest;
-		uint8_t deleteFiles = 0;
-		if (get_manifest(&manifest)) {
-			/* POST the files in the manifest to the server. */
-			if (post_manifest(&dev, manifest)) {
-				/* Parse the HTTP response from the server. */
-				SLUpdate slUpdate;
-				if (parse_response(&dev, &slUpdate.limit)) {
-					/* Server returned 200 OK - safe to delete the local data. */
-					deleteFiles = 1;
-
-					/* Post the updated speed limit to the beacon task. */
-					xQueueSend(xSLUpdatesQueue, (void*)&slUpdate, 0);
-				}
-			}
-		}
-
-		/* Delete all of the files POSTed to the server */
-		free_manifest(manifest, deleteFiles);
-
-		/* Release exclusive access to the SPI bus. */
-		spi_give();
-
-		// Sleep for 1 minute.
-		vTaskDelay(30000);
-	}
-
-}
