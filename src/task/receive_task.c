@@ -183,7 +183,7 @@ receive_task(void * pvParameters) {
 	int set_up_okay = 0;
 	char buffer[512];
 	int error = 0;
-	int threshold = 10;
+	int threshold = 20;
 
 	char ack = '\x06';
 	char lcd_returned = '\x00';
@@ -359,12 +359,16 @@ receive_task(void * pvParameters) {
 					error++;
 				}
 			}
+			else{
+				trace_printf("No data received \n");
+				error++;
+			}
 		}
 		//if sequential bad received values exceed threshold, set for reconfiguration of xbee module
 		if (error >= threshold){
 			error = 0;
 			set_up_okay = 0;
 		}
-		vTaskDelay(1500);
+		vTaskDelay(800);
 	}
 }
