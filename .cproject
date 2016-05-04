@@ -25,7 +25,7 @@
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.debugging.level.1557602115" name="Debug level" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.debugging.level" value="ilg.gnuarmeclipse.managedbuild.cross.option.debugging.level.max" valueType="enumerated"/>
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.debugging.format.1490634910" name="Debug format" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.debugging.format"/>
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.family.582417629" name="ARM family" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.family" value="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.mcpu.cortex-m4" valueType="enumerated"/>
-							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi.1354350972" name="Float ABI" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi" value="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi.hard" valueType="enumerated"/>
+							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi.1354350972" name="Float ABI" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi" value="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi.softfp" valueType="enumerated"/>
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.warnings.allwarn.150558670" name="Enable all common warnings (-Wall)" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.warnings.allwarn" value="true" valueType="boolean"/>
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.warnings.extrawarn.1647351630" name="Enable extra warnings (-Wextra)" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.warnings.extrawarn" value="true" valueType="boolean"/>
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.optimization.freestanding.2078681713" name="Assume freestanding environment (-ffreestanding)" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.optimization.freestanding" value="true" valueType="boolean"/>
@@ -73,6 +73,7 @@
 							<tool command="${cross_prefix}${cross_c}${cross_suffix}" commandLinePattern="${COMMAND} ${cross_toolchain_flags} ${FLAGS} -c ${OUTPUT_FLAG} ${OUTPUT_PREFIX}${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GCCErrorParser" id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.1458475132" name="Cross ARM C Compiler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler">
 								<option id="ilg.gnuarmeclipse.managedbuild.cross.option.c.compiler.include.paths.1497428014" name="Include paths (-I)" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.c.compiler.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;C:\Program Files (x86)\GNU Tools ARM Embedded\4.9 2015q3\arm-none-eabi\include&quot;"/>
+<<<<<<< 96d4370e19d9f494d1ea536afa45737a625400b7
 <<<<<<< db5043f6a1d88489a7d39e5053b78ca1f47622cb
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/HighwayRTOS/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/HighwayRTOS/system/include}&quot;"/>
@@ -84,6 +85,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/HighwayRTOS/freertos-fat/api}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/HighwayRTOS/freertos-fat/psp/include}&quot;"/>
 =======
+=======
+>>>>>>> code at end of Mark test period
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/system/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/system/include/cmsis}&quot;"/>
@@ -93,6 +96,9 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/freertos/Source/portable/GCC/ARM_CM4F}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/freertos-fat/api}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/freertos-fat/psp/include}&quot;"/>
+<<<<<<< 96d4370e19d9f494d1ea536afa45737a625400b7
+>>>>>>> code at end of Mark test period
+=======
 >>>>>>> code at end of Mark test period
 								</option>
 								<option id="ilg.gnuarmeclipse.managedbuild.cross.option.c.compiler.defs.1667929096" name="Defined symbols (-D)" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.c.compiler.defs" useByScannerDiscovery="false" valueType="definedSymbols">
@@ -109,6 +115,7 @@
 							<tool command="${cross_prefix}${cross_cpp}${cross_suffix}" commandLinePattern="${COMMAND} ${cross_toolchain_flags} ${FLAGS} -c ${OUTPUT_FLAG} ${OUTPUT_PREFIX}${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.GLDErrorParser;org.eclipse.cdt.core.GCCErrorParser" id="ilg.gnuarmeclipse.managedbuild.cross.tool.cpp.compiler.1180739250" name="Cross ARM C++ Compiler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.cpp.compiler">
 								<option id="ilg.gnuarmeclipse.managedbuild.cross.option.cpp.compiler.include.paths.356022035" name="Include paths (-I)" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.cpp.compiler.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;C:\Program Files (x86)\GNU Tools ARM Embedded\4.9 2015q3\arm-none-eabi\include&quot;"/>
+<<<<<<< 96d4370e19d9f494d1ea536afa45737a625400b7
 <<<<<<< db5043f6a1d88489a7d39e5053b78ca1f47622cb
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/HighwayRTOS/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/HighwayRTOS/system/include}&quot;"/>
@@ -120,6 +127,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/HighwayRTOS/freertos-fat/api}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/HighwayRTOS/freertos-fat/psp/include}&quot;"/>
 =======
+=======
+>>>>>>> code at end of Mark test period
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/system/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/system/include/cmsis}&quot;"/>
@@ -129,6 +138,9 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/freertos/Source/portable/GCC/ARM_CM4F}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/freertos-fat/api}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/highway/freertos-fat/psp/include}&quot;"/>
+<<<<<<< 96d4370e19d9f494d1ea536afa45737a625400b7
+>>>>>>> code at end of Mark test period
+=======
 >>>>>>> code at end of Mark test period
 								</option>
 								<option id="ilg.gnuarmeclipse.managedbuild.cross.option.cpp.compiler.noexceptions.522651865" name="Do not use exceptions (-fno-exceptions)" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.cpp.compiler.noexceptions" useByScannerDiscovery="true" value="true" valueType="boolean"/>

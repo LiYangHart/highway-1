@@ -37,7 +37,9 @@ typedef struct _ATDevice {
 /* Predicate functions for hayes_res() */
 typedef uint8_t (*RES_PREDICATE)(ATDevice* dev, void* param);
 
+
 /* Function prototypes */
+
 uint8_t hayes_at(ATDevice* dev, char* command);
 uint8_t hayes_write(ATDevice* dev, uint8_t* buffer, uint8_t start, uint8_t length);
 uint8_t hayes_res(ATDevice* dev, RES_PREDICATE test, void* param, uint16_t timeout);

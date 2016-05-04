@@ -250,6 +250,46 @@ post_manifest(ATDevice* dev, Attachment* manifest) {
 		/* Write the end of the HTTP chunk. */
 		hayes_at(dev, "\r\n");
 
+	/* Output the HTTP header - specify POST with chunked encoding. */
+	hayes_at(dev,
+			"POST /data HTTP/1.1\r\n" \
+			"Host: " NGROK_TUNNEL "\r\n" \
+			"Content-Type: application/octet-stream\r\n" \
+			"Transfer-Encoding: chunked\r\n" \
+			"Connection: close\r\n\r\n"
+	);
+
+	while (manifest != NULL) {
+		// Write file
+		F_FILE* pxFile = f_open(manifest->name, "r");
+		if (pxFile == NULL) {
+			trace_printf("failed to open file");
+			continue;
+		}
+
+		/* Write the start of the HTTP chunk. */
+		int length = manifest->length;
+		snprintf(dev->buffer, 32, "%x\r\n", 32 +length);
+		hayes_at(dev, dev->buffer);
+
+		/* Write the attachment header. */
+		memset(dev->buffer, '\0', 32);
+		snprintf(dev->buffer, 32, "%s,%d\r\n", manifest->name, length);
+		hayes_write(dev, (uint8_t*)dev->buffer, 0, 32);
+
+		/* Write the attachment. */
+		uint32_t written = 0;
+		while (written < manifest->length) {
+			uint32_t read = f_read(dev->buffer, 1, 128, pxFile);
+			written += read;
+			hayes_write(dev, (uint8_t*)dev->buffer, 0, read);
+		}
+
+		f_close(pxFile);
+		pxFile = NULL;
+
+		/* Write the end of the HTTP chunk. */
+		hayes_at(dev, "\r\n");
 		manifest = manifest->next;
 	}
 
@@ -278,6 +318,7 @@ parse_response(ATDevice* dev, uint8_t* speedLimit) {
 	char* line = NULL;
 	while ((line = tokenize_res(dev, line)) != NULL) {
 		if (sscanf(line, "SL=%d,EOM", &sl) == 1) {
+
 			//adding line to see if incoming SL value is good
 			if (sl >= 1 && sl <= 255){
 				*speedLimit = sl;
