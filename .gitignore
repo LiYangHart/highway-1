@@ -37,3 +37,5 @@ Debug/
 
 # Eclipse
 .settings/
+
+.cproject
