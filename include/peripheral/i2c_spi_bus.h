@@ -10,6 +10,9 @@
 #include <stm32f4xx.h>
 #include <stm32f4xx_hal_conf.h>
 
+#include <FreeRTOS.h>
+#include <semphr.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,6 +30,8 @@ typedef enum {
 /* SPI and I2C HAL handles */
 extern SPI_HandleTypeDef hspi;
 extern I2C_HandleTypeDef hi2c;
+
+extern SemaphoreHandle_t xSpiSemaphore;
 
 /* List of SPI slave devices */
 typedef enum {
@@ -47,6 +52,8 @@ typedef struct {
 } RegisterTuple16_8;
 
 /* SPI functions */
+uint8_t spi_take();
+void spi_give();
 void spi_bus_init();
 void spi_select(Devices_SS slave);
 void spi_release(Devices_SS slave);

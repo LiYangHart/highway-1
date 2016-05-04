@@ -1,5 +1,6 @@
 #include <peripheral/dma_serial.h>
 #include <peripheral/skywire.h>
+#include <string.h>
 
 uint8_t rx_buffer[128];
 DMA_SerialHandle skywire = {
@@ -118,3 +119,9 @@ uint8_t
 skywire_read(uint8_t* buffer, uint8_t position, uint8_t length) {
 	return dma_serial_read(&skywire, buffer, position, length);
 }
+
+Skywire_StatusTypeDef
+skywire_write(uint8_t* buffer, uint8_t start, uint8_t length) {
+	return HAL_UART_Transmit(skywire_handle(), buffer + start, length, 10000);
+}
+

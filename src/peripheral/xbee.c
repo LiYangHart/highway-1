@@ -29,7 +29,7 @@ xbee_init() {
 	__HAL_RCC_USART6_CLK_ENABLE();
 	xbee.huart.Instance = USART6;
 	xbee.huart.State = HAL_UART_STATE_RESET;
-	xbee.huart.Init.BaudRate = 115200;
+	xbee.huart.Init.BaudRate = 9600;
 	xbee.huart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	xbee.huart.Init.Mode = UART_MODE_TX_RX;
 	xbee.huart.Init.WordLength = UART_WORDLENGTH_8B;
@@ -77,10 +77,7 @@ xbee_read(uint8_t* buffer, uint8_t position, uint8_t length) {
 	return dma_serial_read(&xbee, buffer, position, length);
 }
 
-uint8_t
-xbee_write(uint8_t* buffer, uint8_t length) {
-	if (HAL_UART_Transmit(xbee_handle(), buffer, length, 1000) == HAL_OK) {
-		return length;
-	}
-	return 0;
+Xbee_StatusTypeDef
+xbee_write(uint8_t* buffer, uint8_t start, uint8_t length) {
+	return HAL_UART_Transmit(xbee_handle(), buffer + start, length, 1000);
 }

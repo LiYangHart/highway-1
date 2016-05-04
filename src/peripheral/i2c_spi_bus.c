@@ -1,9 +1,11 @@
+#include <peripheral/i2c_spi_bus.h>
 #include <peripheral/arducam.h>
 #include <peripheral/hts221.h>
-#include <peripheral/i2c_spi_bus.h>
 #include <peripheral/lps331.h>
 #include <peripheral/stlm75.h>
 #include "diag/Trace.h"
+
+SemaphoreHandle_t xSpiSemaphore = NULL;
 
 SPI_HandleTypeDef hspi;
 I2C_HandleTypeDef hi2c;
@@ -34,6 +36,24 @@ spi_bus_init() {
 		trace_printf("HAL SPI setup failed\n");
 		return;
 	}
+
+	xSpiSemaphore = xSemaphoreCreateMutex();
+}
+
+/**
+ * Obtain exclusive access to the SPI bus.
+ */
+uint8_t
+spi_take() {
+	return (xSemaphoreTake(xSpiSemaphore, 0) == pdTRUE);
+}
+
+/**
+ * Release exclusive access to the SPI bus.
+ */
+void
+spi_give() {
+	xSemaphoreGive(xSpiSemaphore);
 }
 
 /**

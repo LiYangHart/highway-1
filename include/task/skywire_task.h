@@ -18,7 +18,16 @@ extern "C" {
 #endif
 
 #define SKYWIRE_TASK_NAME "SKYW"
-#define SKYWIRE_TASK_STACK_SIZE 1024
+#define SKYWIRE_TASK_STACK_SIZE 2586
+
+#define NGROK_TUNNEL "35942d70.ngrok.io"
+
+/* An item to be POSTed to the server. */
+typedef struct _Attachment {
+	char name[64];
+	uint32_t length;
+	struct _Attachment* next;
+} Attachment;
 
 void skywire_task(void * pvParameters);
 

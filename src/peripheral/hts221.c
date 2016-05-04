@@ -1,6 +1,7 @@
 #include <peripheral/hts221.h>
 #include <peripheral/i2c_spi_bus.h>
 #include "math.h"
+#include "diag/Trace.h"
 
 HTS221_CalibTypeDef hts221_calib = { 0 };
 

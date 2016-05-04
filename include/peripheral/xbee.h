@@ -15,11 +15,18 @@
 extern "C" {
 #endif
 
+typedef enum {
+	XBEE_OK      = HAL_OK,
+	XBEE_ERROR   = HAL_ERROR,
+	XBEE_TIMEOUT = HAL_TIMEOUT
+} Xbee_StatusTypeDef;
+
 UART_HandleTypeDef* xbee_handle();
 void xbee_init();
 uint8_t xbee_count();
 uint8_t xbee_getc();
 uint8_t xbee_read(uint8_t* buffer, uint8_t position, uint8_t length);
+uint8_t xbee_write(uint8_t* buffer, uint8_t start, uint8_t length);
 
 #ifdef __cplusplus
 }
