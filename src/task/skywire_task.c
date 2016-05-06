@@ -249,7 +249,6 @@ post_manifest(ATDevice* dev, Attachment* manifest) {
 
 		/* Write the end of the HTTP chunk. */
 		hayes_at(dev, "\r\n");
-
 		manifest = manifest->next;
 	}
 
@@ -267,9 +266,9 @@ parse_response(ATDevice* dev, uint8_t* speedLimit) {
 	 * Skip the headers by looking for "\r\n\r\n".
 	 * Look for no carrier when the connection is closed.
 	 */
-	if (   hayes_res(dev, pred_ends_with, "200 OK\r\n", 10000)    != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "\r\n\r\n", 2000)       != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "NO CARRIER\r\n", 2000) != HAYES_OK) {
+	if (   hayes_res(dev, pred_ends_with, "200 OK\r\n", 20000)    != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "\r\n\r\n", 10000)       != HAYES_OK
+		|| hayes_res(dev, pred_ends_with, "NO CARRIER\r\n", 10000) != HAYES_OK) {
 		trace_printf("skywire_task: response not as expected\n");
 		return 0;
 	}
@@ -278,12 +277,14 @@ parse_response(ATDevice* dev, uint8_t* speedLimit) {
 	char* line = NULL;
 	while ((line = tokenize_res(dev, line)) != NULL) {
 		if (sscanf(line, "SL=%d,EOM", &sl) == 1) {
-			*speedLimit = sl;
-			return 1;
+			//adding line to see if incoming SL value is good
+			if (sl >= 1 && sl <= 255){
+				*speedLimit = sl;
+				return 1;
+			}
 		}
 	}
-
-	*speedLimit = 0;
+	*speedLimit = 100;
 	return 0;
 }
 

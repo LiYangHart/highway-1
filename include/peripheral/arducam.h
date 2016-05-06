@@ -23,6 +23,7 @@ extern "C" {
 #define ARDUCHIP_CCR             0x01
 #define ARDUCHIP_SITR            0x03
 #define ARDUCHIP_FIFO_CR         0x04
+#define ARDUCHIP_GPIO_WRITE		 0x06
 #define ARDUCHIP_VERSION         0x40
 #define ARDUCHIP_STATUS          0x41
 #define ARDUCHIP_BURST_READ      0x3C
@@ -30,6 +31,7 @@ extern "C" {
 #define ARDUCHIP_FIFO_WRITE_0    0x42
 #define ARDUCHIP_FIFO_WRITE_1    0x43
 #define ARDUCHIP_FIFO_WRITE_2    0x44
+#define ARDUCHIP_GPIO_READ		 0x45
 
 #define OV5642_CHIP_ID_HIGH_BYTE 0x300A
 #define OV5642_CHIP_ID_LOW_BYTE  0x300B
@@ -39,6 +41,7 @@ extern "C" {
 #define OV5642_CHIP_ID           0x5642
 
 /* Register masks */
+#define STNDBY_ENABLE_MASK		 0x02
 #define SITR_VSYNC_MASK          0x02
 #define SITR_FIFO_MASK           0x10
 #define SITR_LOW_POWER_MASK      0x10
@@ -56,9 +59,12 @@ uint8_t arducam_chip();
 uint8_t arducam_init();
 Devices_StatusTypeDef arducam_setup();
 Devices_StatusTypeDef arducam_start_capture();
+Devices_StatusTypeDef arducam_low_power_set();
+Devices_StatusTypeDef arducam_low_power_remove();
 Devices_StatusTypeDef arducam_wait_capture(uint32_t* capture_length);
 Devices_StatusTypeDef arducam_read_capture(uint8_t* buffer, uint16_t length);
 Devices_StatusTypeDef arducam_burst_read(uint8_t* buffer, uint16_t length);
+
 
 /* CMOS sensor API */
 uint16_t ov5642_chip();

@@ -2,6 +2,7 @@
 #include <task/beacon_task.h>
 #include <stdio.h>
 #include <string.h>
+#include <hayes.h>
 #include "diag/Trace.h"
 
 QueueHandle_t xSLUpdatesQueue;
@@ -20,29 +21,199 @@ beacon_task_setup() {
 	return 1; // OK
 }
 
+//function to do configuration of Xbee module acting as transmitter
+uint8_t
+xbee_transmit_setup(ATDevice* xbee_transmit) {
+	//with Xbee setup, want to first enter command mode to set proper fields for Xbee operation
+	//done by sending three +++ quickly to Xbee, then waiting for one second
+	if (hayes_at(xbee_transmit, "+++")								!= HAYES_OK
+		|| hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1050)	!= HAYES_OK){
+			trace_printf("Failed to enter command mode \n");
+			return 0;
+	}
+	else {
+		trace_printf("Entered command mode\n");
+	}
+
+	//once in command mode, begin setting parameters, look for OK after each one
+	//note that current settings are for transmitter, carriage return '\r' needed on end of command strings
+	//setting parameters first, will read back certain critical ones after
+
+	if (hayes_at(xbee_transmit, "ATPL0\r")							!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATCE2\r")						!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATNH1\r")						!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATDH00000000\r")					!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATDL0000FFFF\r")					!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATTO41\r")						!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATD00\r")						!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATD50\r")						!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATD70\r")						!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATD80\r")						!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATPD7FFF\r")						!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATAV1\r")						!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK) {
+			trace_printf("Sending configuration commands failed \n");
+			return 0;
+	}
+
+	else{
+		trace_printf("Configuration commands run \n");
+	}
+
+	//after setting other parameters, configure encryption
+	if(hayes_at(xbee_transmit, "ATEE1\r")										!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)				!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATKY00112233445566778899AABBCCDDEEFF\r")		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)				!= HAYES_OK) {
+		trace_printf("Configuring encryption failed \n");
+		return 0;
+	}
+
+	else {
+		trace_printf("Encryption set okay \n");
+	}
+	//after sending commands out, want to read back a few values
+	//if not as expected, send command to correct
+
+	//first, checking preamble and network IDs
+	if (hayes_at(xbee_transmit, "ATHP\r")							!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 1000)		!= HAYES_OK) {
+			trace_printf("Preamble not set correctly, changing \n");
+			if (hayes_at(xbee_transmit, "ATHP0\r")							!= HAYES_OK
+				||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1000)		!= HAYES_OK) {
+				trace_printf("Error setting preamble \n");
+				return 0;
+			}
+	}
+
+	else{
+		trace_printf("Preamble okay \n");
+	}
+
+	if (hayes_at(xbee_transmit, "ATID\r")								!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "7FFF\r", 1000)		!= HAYES_OK) {
+			trace_printf("Network ID not set correctly, changing \n");
+			if (hayes_at(xbee_transmit, "ATID7FFF\r")						!= HAYES_OK
+				||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1000)		!= HAYES_OK) {
+					trace_printf("Error setting network ID \n");
+					return 0;
+			}
+	}
+
+	else{
+		trace_printf("Network ID okay \n");
+	}
+
+	//checking baud rate
+	if (hayes_at(xbee_transmit, "ATBD\r")								!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "3\r", 1000)			!= HAYES_OK) {
+			trace_printf("Baud rate not set correctly, changing \n");
+			if (hayes_at(xbee_transmit, "ATBD3\r")							!= HAYES_OK
+				||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1000)		!= HAYES_OK) {
+					trace_printf("Error setting baud rate \n");
+					return 0;
+			}
+	}
+
+	else{
+		trace_printf("Baud rate okay \n");
+	}
+
+	//double check power and destination address fields
+	if (hayes_at(xbee_transmit, "ATPL\r")										!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 1200)				!= HAYES_OK ){
+		trace_printf("Error in checking power level \n");
+		return 0;
+	}
+	else {
+		trace_printf("Power level okay \n");
+	}
+
+	if (hayes_at(xbee_transmit, "ATDH\r")									!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 1200)		!= HAYES_OK){
+		trace_printf("Error with destination high \n");
+		return 0;
+	}
+	else {
+		trace_printf("Destination high okay \n");
+	}
+
+
+	if (hayes_at(xbee_transmit, "ATDL\r")									!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "FFFF\r", 1200)		!= HAYES_OK) {
+			trace_printf("Error with destination low \n");
+			return 0;
+	}
+
+	else {
+		trace_printf("Parameter check okay \n");
+	}
+
+	//after configuring/checking everything, apply changes and exit command mode
+	if (hayes_at(xbee_transmit, "ATAC\r")							!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1000)		!= HAYES_OK
+		||hayes_at(xbee_transmit, "ATCN\r")							!= HAYES_OK) {
+			trace_printf("Error applying changes \n");
+			return 0;
+	}
+
+	//if this point reached, okay on set-up
+	trace_printf("Xbee set-up complete \n");
+	return 1;
+}
+
+
 /**
  * Task to emit beacons which are received by passing cars.
  */
 void
 beacon_task(void * pvParameters) {
 	//transmit used to mark if module should be configured as transmitter or receiver
-	int transmit = 1;
+
+	//int transmit = 1;
+	//value used to hold value of set-up, start at '0' then set to '1' if done correctly
+	int set_up_okay = 0;
+	char buffer[512];
+
+	//AT device for use with hayes commands
+	ATDevice xbee_transmit;
+	xbee_transmit.api.count = xbee_count;
+	xbee_transmit.api.getc = xbee_getc;
+	xbee_transmit.api.write = xbee_write;
+	xbee_transmit.buffer = buffer;
+	xbee_transmit.length = 512;
+
+	//variable to track number of bad transmissions and allowed threshold before a module reset
+	int threshold = 10;
+	int error_count = 0;
 
 	//speed used to hold speed value to transmit through xbee and set constants for string construction
-	int speed = 10;
-	int prev_speed = 10;
+	int speed = 100;
+	int prev_speed = 100;
 	int u_limit = 255;
 	int l_limit = 1;
 	char text_start[5] = "SL: \0";
 	char text_end[7] = " km/hr\0";
 	char speed_string[4];
 	char speed_cat[4];
-	char send_string[13];
+	char send_string[14];
 	char zero_one[2] = "0\0";
 	char zero_two[3] = "00\0";
-	char zero_three[4] = "000\0";
+	char dollar[2]= "$\0";
 
 	/* Initialize the peripherals and state for this task. */
+	trace_printf("Update check \n");
 	if (!beacon_task_setup()) {
 		trace_printf("beacon_task: setup failed\n");
 		vTaskDelete(NULL);
@@ -51,419 +222,28 @@ beacon_task(void * pvParameters) {
 		trace_printf("beacon_task: started\n");
 	}
 
-	//configuration for module acting as transmitter
-	if (transmit == 1)
-	{
-		//with Xbee setup, want to first enter command mode to set proper fields for Xbee operation
-		//done by sending three +++ quickly to Xbee, then waiting for one second
-		xbee_write((uint8_t*)"+++", 3);
+	//once task has started, run continuously
+	for(;;){
+		//configuration for module acting as transmitter
 
-		//after waiting for one second delay, check to see if UART responded with "OK"
-		vTaskDelay(1050);
+		//first, check to see if configuration has been done properly
+		if (set_up_okay == 0){
+			//call function to configure transmitting xbee module as well as re-configuring serial just in case
+			//if ending back here because not writing to module, figured it was better to reset both
+			xbee_init();
 
-		while (xbee_count() > 0){
-			trace_printf("%c", xbee_getc());
+			if(!xbee_transmit_setup(&xbee_transmit)){
+				trace_printf("Xbee configuration failed, try again\n");
+			}
+			else{
+				trace_printf("Xbee configured okay \n");
+				set_up_okay = 1;
+			}
 		}
 
-		//once in command mode, begin setting parameters, look for OK after each one
-		//note that current settings are for transmitter, carriage return '\r' needed on end of command strings
-		//after setting parameter, field is read back to make sure entered properly
-
-		//checking preamble and network IDS)
-		xbee_write((uint8_t*)"ATHP\r", 5);
-		vTaskDelay(500);
-		trace_printf("preamble: \n");
-		while (xbee_count() > 0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATID\r", 5);
-		vTaskDelay(500);
-		trace_printf("network ID: \n");
-		while (xbee_count() > 0){
-         		trace_printf("%c", xbee_getc());
-		}
-
-		//setting power level of Xbee to lowest level to begin
-		xbee_write((uint8_t*)"ATPL0\r", 6);
-		vTaskDelay(500);
-		trace_printf("power level change: \n");
-		while (xbee_count() > 0){
-             	trace_printf("%c", xbee_getc());
-        }
-
-		xbee_write((uint8_t*)"ATPL\r", 5);
-		vTaskDelay(500);
-		trace_printf("power level: \n");
-		while (xbee_count() > 0){
-		       trace_printf("%c", xbee_getc());
-		}
-
-		//set transmitter to not act as node in mesh  network
-		xbee_write((uint8_t*)"ATCE2\r", 6);
-		vTaskDelay(500);
-		trace_printf("node messaging change: \n");
-		while (xbee_count() > 0){
-		        trace_printf("%c", xbee_getc());
-		}
-
-		//setting network hops max to 1, shouldn't be needed but doesn't seem to have a default
-		xbee_write((uint8_t*)"ATNH1\r", 6);
-		vTaskDelay(500);
-		trace_printf("network hop change: \n");
-		while (xbee_count() >0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		//setting destination address for broadcast transmissions, needs to be 0x000000000000FFFF
-		xbee_write((uint8_t*)"ATDH00000000\r", 13);
-		vTaskDelay(500);
-		trace_printf("destination address high set: \n");
-		while (xbee_count() >0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATDL0000FFFF\r", 13);
-		vTaskDelay(500);
-		trace_printf("destination address low set: \n");
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//setting destination address for broadcast transmissions, needs to be 0x000000000000FFFF
-		xbee_write((uint8_t*)"ATDH\r", 5);
-		vTaskDelay(500);
-		trace_printf("destination address high: \n");
-		while (xbee_count() >0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATDL\r", 5);
-		vTaskDelay(500);
-		trace_printf("destination address low: \n");
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//set transmit options for point-to-multipoint, acknlowedgements disabled
-		xbee_write((uint8_t*)"ATTO41\r", 7);
-		trace_printf("transmission options set: \n");
-		vTaskDelay(500);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//set node name for transmitter, seems like fairly long delay needed here in order to actually set value
-		/*xbee_write((uint8_t*)"ATNItransmit\r", 12);
-		trace_printf("node name set: \n");
-		vTaskDelay(2000);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//set node name for transmitter
-		xbee_write((uint8_t*)"ATNI\r", 5);
-		trace_printf("node name: \n");
-		vTaskDelay(2000);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		} */
-
-		//check current baud rate.  Might want to change this in future
-		xbee_write((uint8_t*)"ATBD\r", 5);
-		trace_printf("Baud rate value: \n");
-		vTaskDelay(500);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//as most I/O pins are not connected on shield, disabling for now
-		xbee_write((uint8_t*)"ATD00\r", 6);
-		trace_printf("D0 changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATD50\r", 6);
-		trace_printf("D5 changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATD70\r", 6);
-		trace_printf("D7 changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATD80\r", 6);
-		trace_printf("D8 changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATD9\r", 6);
-		trace_printf("D9 value: \n");
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATP0\r", 6);
-		trace_printf("D10 value: \n");
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//setting pins for pull-up capability
-		xbee_write((uint8_t*)"ATPD7FFF\r", 9);
-		trace_printf("Pull-up changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//setting analog voltage reference
-		xbee_write((uint8_t*)"ATAV1\r", 6);
-		trace_printf("voltage reference value changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//after entering commands to set fields, need to apply changes and exit command mode
-		trace_printf("Applying changes \n");
-		xbee_write((uint8_t*)"ATAC\r", 5);
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		trace_printf("Exiting Command Mode \n");
-		xbee_write((uint8_t*)"ATCN\r", 5);
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-	}
-
-	//configuration for module acting as receiver
-	else{
-		//with Xbee setup, want to first enter command mode to set proper fields for Xbee operation
-		//done by sending three +++ quickly to Xbee, then waiting for one second
-		xbee_write((uint8_t*)"+++", 3);
-
-		//after waiting for one second delay, check to see if UART responded with "OK"
-		vTaskDelay(1050);
-
-		while (xbee_count() > 0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		//once in command mode, begin setting parameters, look for OK after each one
-		//note that current settings are for transmitter, carriage return '\r' needed on end of command strings
-		//after setting parameter, field is read back to make sure entered properly
-
-		//checking preamble and network IDS)
-		xbee_write((uint8_t*)"ATHP\r", 5);
-		vTaskDelay(500);
-		trace_printf("preamble: \n");
-		while (xbee_count() > 0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATID\r", 5);
-		vTaskDelay(500);
-		trace_printf("network ID: \n");
-		while (xbee_count() > 0){
-		        trace_printf("%c", xbee_getc());
-		}
-
-		//setting power level of Xbee to lowest level to begin
-		xbee_write((uint8_t*)"ATPL0\r", 6);
-		vTaskDelay(500);
-		trace_printf("power level change: \n");
-		while (xbee_count() > 0){
-		        trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATPL\r", 5);
-		vTaskDelay(500);
-		trace_printf("power level: \n");
-		while (xbee_count() > 0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		//set transmitter to not act as node in mesh  network
-		xbee_write((uint8_t*)"ATCE2\r", 6);
-		vTaskDelay(500);
-		trace_printf("node messaging change: \n");
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//setting network hops max to 1, shouldn't be needed but doesn't seem to have a default
-		xbee_write((uint8_t*)"ATNH1\r", 6);
-		vTaskDelay(500);
-		trace_printf("network hop change: \n");
-		while (xbee_count() >0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		//setting destination address for broadcast transmissions, needs to be 0x000000000000FFFF
-		xbee_write((uint8_t*)"ATDH00000000\r", 13);
-		vTaskDelay(500);
-		trace_printf("destination address high set: \n");
-		while (xbee_count() >0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATDL0000FFFF\r", 13);
-		vTaskDelay(500);
-		trace_printf("destination address low set: \n");
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//setting destination address for broadcast transmissions, needs to be 0x000000000000FFFF
-		xbee_write((uint8_t*)"ATDH\r", 5);
-		vTaskDelay(500);
-		trace_printf("destination address high: \n");
-		while (xbee_count() >0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATDL\r", 5);
-		vTaskDelay(500);
-		trace_printf("destination address low: \n");
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//set transmit options for point-to-multipoint, acknlowedgements disabled
-		xbee_write((uint8_t*)"ATTO41\r", 7);
-		trace_printf("transmission options set: \n");
-		vTaskDelay(500);
-		while (xbee_count() >0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		//set node name for transmitter, seems like fairly long delay needed here in order to actually set value
-		/*xbee_write((uint8_t*)"ATNIreceive\r", 12);
-		trace_printf("node name set: \n");
-		vTaskDelay(2000);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//set node name for transmitter
-		xbee_write((uint8_t*)"ATNI\r", 5);
-		trace_printf("node name: \n");
-		vTaskDelay(2000);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}*/
-
-		//check current baud rate.  Might want to change this in future
-		xbee_write((uint8_t*)"ATBD\r", 5);
-		trace_printf("Baud rate value: \n");
-		vTaskDelay(500);
-		while (xbee_count() >0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		//as most I/O pins are not connected on shield, disabling for now
-		xbee_write((uint8_t*)"ATD00\r", 6);
-		trace_printf("D0 changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATD50\r", 6);
-		trace_printf("D5 changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATD70\r", 6);
-		trace_printf("D7 changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() >0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATD80\r", 6);
-		trace_printf("D8 changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-			trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATD9\r", 6);
-		trace_printf("D9 value: \n");
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		xbee_write((uint8_t*)"ATP0\r", 6);
-		trace_printf("D10 value: \n");
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//setting pins for pull-up capability
-		xbee_write((uint8_t*)"ATPD7FFF\r", 9);
-		trace_printf("Pull-up changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//setting analog voltage reference
-		xbee_write((uint8_t*)"ATAV1\r", 6);
-		trace_printf("voltage reference value changed: \n");
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		//after entering commands to set fields, need to apply changes and exit command mode
-		trace_printf("Applying changes \n");
-		xbee_write((uint8_t*)"ATAC\r", 5);
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-
-		trace_printf("Exiting Command Mode \n");
-		xbee_write((uint8_t*)"ATCN\r", 5);
-		vTaskDelay(500);
-		while (xbee_count() > 0){
-				trace_printf("%c", xbee_getc());
-		}
-	}
-
-/*after configuring module, want to either periodically output transmission or
-check for received characters.  For now, just going to send out constant message
-as test to see if it is picked up */
-	for (;;) {
-		SLUpdate slUpdate;
-		if (xQueueReceive(xSLUpdatesQueue, &slUpdate, 0) == pdTRUE) {
-			trace_printf("beacon task: SL = %d\n", slUpdate.limit);
-		}
-
+		/*after configuring module, want to periodically output transmission
 		/**
-		 * TODO The Skywire task will periodically communicate with the MCC.
+		 * The Skywire task will periodically communicate with the MCC.
 		 * When updated SL values are received, they will be communicated to
 		 * this task via IPC mailbox.
 		 */
@@ -477,12 +257,15 @@ as test to see if it is picked up */
 		 */
 
 		/* Echo received bytes from UART6 to the console. */
-
-		//if module is set as transmitter, periodically output transmission
-		if (transmit == 1){
-			//convert integer speed value to string and pad if needed
+		//convert integer speed value to string and pad if needed
+		if (set_up_okay == 1){
 			trace_printf("Constructing string \n");
 
+			SLUpdate slUpdate;
+			if (xQueueReceive(xSLUpdatesQueue, &slUpdate, 0) == pdTRUE) {
+				trace_printf("beacon task: SL = %d\n", slUpdate.limit);
+				speed = (int)slUpdate.limit;
+			}
 			//check that speed limit value is within limits.  If not, use previous
 			if (speed >= l_limit && speed <= u_limit) {
 				snprintf(speed_string, 4, "%d", speed);
@@ -513,25 +296,36 @@ as test to see if it is picked up */
 
 			trace_printf("concatenated speed value \n");
 			trace_printf("%s \n", speed_cat);
-			//construct phrase to be sent
+			//construct phrase to be sent, '$' sign on end to avoid passing along junk
 			strcat(send_string, text_start);
 			strcat(send_string, speed_cat);
 			strcat(send_string, text_end);
+			strcat(send_string, dollar);
 			trace_printf("Sending phrase: %s", send_string);
-			xbee_write((uint8_t*)send_string, 13);
 			trace_printf("\n");
-			//incrementing speed value for test
-			speed++;
-		}
 
-		//if module is receiver, check for incoming data on buffer periodically
-		else {
-			while (xbee_count() > 0) {
-				trace_printf("%c", xbee_getc());
+			//send string and do check to see if there was error
+			if (xbee_write((uint8_t*)send_string, 0, 14) != XBEE_OK){
+				//if error, increment count
+				trace_printf("Error on writing to Xbee \n");
+				error_count++;
 			}
-		}
+			//otherwise, reset error count
+			else {
+				error_count = 0;
+				speed++;
+			}
 
-		/* Run task at ~1Hz for now. */
+			//if error count exceeds threshold, set back to 0 and flag module to be re-configured
+			if (error_count >= threshold) {
+				trace_printf("Resetting module configuration \n");
+				error_count = 0;
+				set_up_okay = 0;
+			}
+			//incrementing speed value for test
+			//speed++;
+			/* Run task at ~1Hz for now. */
+		}
 		vTaskDelay(10000);
 	}
 }
