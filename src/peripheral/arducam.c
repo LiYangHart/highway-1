@@ -120,6 +120,62 @@ arducam_start_capture() {
 }
 
 /**
+ * function to set arducam into low-power mode between taking images
+ */
+
+Devices_StatusTypeDef
+arducam_low_power_set(){
+	uint8_t gpio_value;
+
+	spi_select(SLAVE_ARDUCAM);
+
+	//read gpio register first, then apply mask to set low-power mode
+	if (spi_read8(&hspi, ARDUCHIP_GPIO_READ, &gpio_value, 1) != DEVICES_OK){
+		spi_release(SLAVE_ARDUCAM);
+		trace_printf("Error reading GPIO register \n");
+		return DEVICES_ERROR;
+	}
+
+	gpio_value = gpio_value | STNDBY_ENABLE_MASK;
+
+	if (spi_write8_8(&hspi, ARDUCHIP_GPIO_WRITE, gpio_value) != DEVICES_OK){
+		spi_release(SLAVE_ARDUCAM);
+		trace_printf("Error setting GPIO register \n");
+		return DEVICES_ERROR;
+	}
+	spi_release(SLAVE_ARDUCAM);
+	return DEVICES_OK;
+}
+
+/**
+ * function to take Arducam back out of low-power mode
+ */
+
+Devices_StatusTypeDef
+arducam_low_power_remove(){
+	uint8_t gpio_value;
+
+	spi_select(SLAVE_ARDUCAM);
+
+	//read gpio register first, then apply mask to remove low-power mode
+	if (spi_read8(&hspi, ARDUCHIP_GPIO_READ, &gpio_value, 1) != DEVICES_OK){
+		spi_release(SLAVE_ARDUCAM);
+		trace_printf("Error reading GPIO register \n");
+		return DEVICES_ERROR;
+	}
+
+	gpio_value = gpio_value & !STNDBY_ENABLE_MASK;
+
+	if (spi_write8_8(&hspi, ARDUCHIP_GPIO_WRITE, gpio_value) != DEVICES_OK){
+		spi_release(SLAVE_ARDUCAM);
+		trace_printf("Error setting GPIO register \n");
+		return DEVICES_ERROR;
+	}
+	spi_release(SLAVE_ARDUCAM);
+	return DEVICES_OK;
+}
+
+/**
  * Wait for the capture flag to be asserted and return the size of the data
  * written to the FIFO buffer.
  */
@@ -298,4 +354,5 @@ ov5642_setup() {
 
 	return DEVICES_OK;
 }
+
 
