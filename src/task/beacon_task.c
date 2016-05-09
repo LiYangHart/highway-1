@@ -213,7 +213,7 @@ beacon_task(void * pvParameters) {
 	char dollar[2]= "$\0";
 
 	/* Initialize the peripherals and state for this task. */
-	trace_printf("Update check \n");
+	trace_printf("Update check new \n");
 	if (!beacon_task_setup()) {
 		trace_printf("beacon_task: setup failed\n");
 		vTaskDelete(NULL);
