@@ -35,6 +35,25 @@ camera_task_setup() {
 		return 0;
 	}
 
+//#ifdef FORMAT_SD_CARD
+	/*format SD card if not formatted*/
+/*	trace_printf("Attempting to format SD card \n");
+	trace_printf("Assuming FAT32 based on size of card\n");
+	if (fn_hardformat(F_FAT32_MEDIA) != F_NO_ERROR)
+	{
+		trace_printf("Format failed\n");
+	}
+	else
+	{
+		trace_printf("Format Success\n");
+	}
+	while(1)
+	{
+		trace_printf("Format done\n");
+		vTaskDelay(10000);
+	}
+#endif*/
+
 #ifdef CLEAN_SD_CARD
 	/* Delete DATA.LOG and JPG files from the SD card. */
 	trace_printf("camera_task: cleaning SD card\n");
@@ -47,6 +66,7 @@ camera_task_setup() {
 		} while (f_findnext(&xFindStruct) == F_NO_ERROR);
 	}
 #endif
+
 
 	spi_give();
 	return 1; // OK

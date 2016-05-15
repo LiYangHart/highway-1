@@ -83,6 +83,8 @@
  * See http://www.freertos.org/a00110.html.
  *----------------------------------------------------------*/
 
+#include <stm32f401xe.h>
+
 /* Ensure stdint is only used by the compiler, and not the assembler. */
 #ifdef __GNUC__
 	#include <stdint.h>
@@ -108,7 +110,7 @@
 #define configUSE_MALLOC_FAILED_HOOK	1
 #define configUSE_APPLICATION_TASK_TAG	0
 #define configUSE_COUNTING_SEMAPHORES	1
-#define configGENERATE_RUN_TIME_STATS	0
+#define configGENERATE_RUN_TIME_STATS	1
 
 /* Co-routine definitions. */
 #define configUSE_CO_ROUTINES 		0
@@ -164,6 +166,14 @@ standard names. */
 #define vPortSVCHandler SVC_Handler
 #define xPortPendSVHandler PendSV_Handler
 #define xPortSysTickHandler SysTick_Handler
+
+/*attempting to use built in FreeRTOS runtime stats functions.  Need to define/config
+ * stat formatting and run_time stats timer for this
+ */
+#define configUSE_STATS_FORMATTING_FUNCTIONS 1
+extern void vConfigureTimerForRunTimeStats (void) ;
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS() vConfigureTimerForRunTimeStats()
+#define portGET_RUN_TIME_COUNTER_VALUE() TIM2->CNT
 
 #endif /* FREERTOS_CONFIG_H */
 

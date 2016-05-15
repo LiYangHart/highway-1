@@ -43,6 +43,9 @@ typedef struct _SampleBuffer {
 /* Program will delete DATA.LOG and JPG files at boot if defined. */
 #define CLEAN_SD_CARD
 
+/*program will format SD card if defined*/
+//#define FORMAT_SD_CARD
+
 void camera_task(void * pvParameters);
 
 #ifdef __cplusplus
