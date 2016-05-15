@@ -3,7 +3,7 @@
 #include <string.h>
 #include <task.h>
 #include "diag/Trace.h"
-
+#include <stm32f4xx.h>
 
 /**
  * Task to periodically print out percentage usage of running tasks
@@ -31,6 +31,11 @@ void stat_task(void * pvParameters) {
 		trace_printf("%s", stat_buffer);
 		trace_printf("\n");
 
-		vTaskDelay(10000);
+		//after printing out buffer, zero again before next go around
+		for (int i = 0; i <= 199; i++)
+		{
+				stat_buffer[i] = '\0';
+		}
+		vTaskDelay(5000);
 	}
 }

@@ -141,8 +141,8 @@ void vConfigureTimerForRunTimeStats (void)
 	__HAL_RCC_TIM2_CLK_ENABLE();
 
 	//first, set prescaler value for timer based on system clock for now
-	TIM2->PSC = ( (configCPU_CLOCK_HZ / 10000UL) - 1UL);
-
+	//TIM2->PSC = ( (configCPU_CLOCK_HZ / 100UL) - 1UL);
+	TIM2->PSC = 0x0064;
 	//set autoreload register to maximum value for counter
 	TIM2->ARR = 0xFFFFFFFF;
 
