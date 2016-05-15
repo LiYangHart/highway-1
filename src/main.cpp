@@ -22,7 +22,7 @@
 #define BEACON_TASK 1
 #define CAMERA_TASK 0
 #define RECEIVE_TASK 0
-#define STAT_TASK 0
+#define STAT_TASK 1
 
 void
 setup_task(void * pvParameters) {

@@ -20,7 +20,7 @@ extern "C" {
 #define STAT_TASK_NAME "STAT"
 #define STAT_TASK_STACK_SIZE 1024
 
-void beacon_task(void * pvParameters);
+void stat_task(void * pvParameters);
 
 #ifdef __cplusplus
 }
