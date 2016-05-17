@@ -11,6 +11,7 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,6 +20,8 @@ extern "C" {
 
 #define STAT_TASK_NAME "STAT"
 #define STAT_TASK_STACK_SIZE 1024
+
+extern QueueHandle_t xMountQueue;
 
 void stat_task(void * pvParameters);
 

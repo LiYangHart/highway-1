@@ -1831,6 +1831,8 @@ UBaseType_t uxTaskGetNumberOfTasks( void )
 
 #if ( configUSE_TRACE_FACILITY == 1 )
 
+	//want to modify to adjust how total run time counter is determined.
+	//want it to be sum of recorded run time since resetting counters each cycle
 	UBaseType_t uxTaskGetSystemState( TaskStatus_t * const pxTaskStatusArray, const UBaseType_t uxArraySize, uint32_t * const pulTotalRunTime )
 	{
 	UBaseType_t uxTask = 0, uxQueue = configMAX_PRIORITIES;
@@ -3194,9 +3196,12 @@ TCB_t *pxNewTCB;
 				}
 				#endif
 
+				//modifying function.  Don't want a cumulative counter, but rather number of ticks
+				//between each call.  After current run time counter copied, reset to 0
 				#if ( configGENERATE_RUN_TIME_STATS == 1 )
 				{
 					pxTaskStatusArray[ uxTask ].ulRunTimeCounter = pxNextTCB->ulRunTimeCounter;
+					pxNextTCB->ulRunTimeCounter = 0;
 				}
 				#else
 				{
@@ -3768,6 +3773,14 @@ TCB_t *pxTCB;
 			uxArraySize = uxTaskGetSystemState( pxTaskStatusArray, uxArraySize, &ulTotalTime );
 
 			/* For percentage calculations. */
+			//want to modify how ulTotalTime is calculated since resetting timers each iteration now
+			//calculate as sum of ticks of each checked task
+			ulTotalTime = 0;
+			for( x =0; x < uxArraySize; x++)
+			{
+				ulTotalTime += pxTaskStatusArray[x].ulRunTimeCounter;
+			}
+
 			ulTotalTime /= 100UL;
 
 			/* Avoid divide by zero errors. */

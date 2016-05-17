@@ -2,6 +2,7 @@
 #include <peripheral/lps331.h>
 #include <peripheral/hts221.h>
 #include <task/camera_task.h>
+#include <task/stat_task.h>
 #include <fat_sl.h>
 #include <mdriver_spi_sd.h>
 #include <FreeRTOS.h>
@@ -54,7 +55,7 @@ camera_task_setup() {
 	}
 #endif*/
 
-#ifdef CLEAN_SD_CARD
+	#ifdef CLEAN_SD_CARD
 	/* Delete DATA.LOG and JPG files from the SD card. */
 	trace_printf("camera_task: cleaning SD card\n");
 	f_delete("DATA.LOG");
@@ -65,7 +66,7 @@ camera_task_setup() {
 			f_delete(xFindStruct.filename);
 		} while (f_findnext(&xFindStruct) == F_NO_ERROR);
 	}
-#endif
+	#endif
 
 
 	spi_give();
@@ -249,7 +250,8 @@ void
 camera_task(void * pvParameters) {
 
 	int low_pow = 0;
-
+	Cardmount check;
+	check.mounted = 0;
 	/* Initialize the peripherals and state for this task. */
 	if (!camera_task_setup()) {
 		trace_printf("camera_task: setup failed\n");
@@ -257,6 +259,8 @@ camera_task(void * pvParameters) {
 		return;
 	} else {
 		trace_printf("camera_task: started\n");
+		check.mounted = 1;
+		xQueueSend(xMountQueue, (void*)&check, 0);
 	}
 
 	/* Initialize timing for capture sub-tasks. */
@@ -269,6 +273,7 @@ camera_task(void * pvParameters) {
 	for (;;) {
 		TickType_t currentTicks = xTaskGetTickCount();
 
+		//commenting out for now to test interaction with stat task a bit
 		if ((currentTicks - lastReading) >= SAMPLE_RATE_MS) {
 			capture_sample(&lastReading);
 		}

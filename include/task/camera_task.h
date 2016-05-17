@@ -30,6 +30,10 @@ typedef struct _SampleBuffer {
 	uint8_t Count;
 } SampleBuffer;
 
+typedef struct Cardmount {
+	uint8_t mounted;
+} Cardmount;
+
 #define MIN(a,b) ((a)<(b)?(a):(b))
 
 #define CAMERA_TASK_NAME "CAMR"
