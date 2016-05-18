@@ -183,7 +183,9 @@ beacon_task(void * pvParameters) {
 
 	//int transmit = 1;
 	//value used to hold value of set-up, start at '0' then set to '1' if done correctly
-	int set_up_okay = 0;
+	//int set_up_okay = 0;
+	//changing set up value to skip xbee initialization as module not present
+	int set_up_okay = 1;
 	char buffer[512];
 
 	//AT device for use with hayes commands
@@ -308,20 +310,21 @@ beacon_task(void * pvParameters) {
 			if (xbee_write((uint8_t*)send_string, 0, 14) != XBEE_OK){
 				//if error, increment count
 				trace_printf("Error on writing to Xbee \n");
-				error_count++;
+				//don't worry about error count for now in this case
+				//error_count++;
 			}
 			//otherwise, reset error count
-			else {
+			/*else {
 				error_count = 0;
 				speed++;
-			}
+			}*/
 
 			//if error count exceeds threshold, set back to 0 and flag module to be re-configured
-			if (error_count >= threshold) {
+			/*if (error_count >= threshold) {
 				trace_printf("Resetting module configuration \n");
 				error_count = 0;
 				set_up_okay = 0;
-			}
+			}*/
 			//incrementing speed value for test
 			//speed++;
 			/* Run task at ~1Hz for now. */
