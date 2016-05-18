@@ -31,7 +31,6 @@ open_stat_log() {
 uint8_t
 stat_log_write(char *stat_buffer) {
 	int length = 0;
-	char buffer [200];
 	/* Try to obtain access to the SD card. */
 	trace_printf("Attempting to write stats to SD card\n");
 
@@ -50,7 +49,7 @@ stat_log_write(char *stat_buffer) {
 	length = strlen(stat_buffer);
 
 	//attempt to write to log file
-	if (f_write(buffer, 1, length, pxStat) != length) {
+	if (f_write(stat_buffer, 1, length, pxStat) != length) {
 			trace_printf("stats_task: write of stats to log failed\n");
 			goto error;
 	}
@@ -73,12 +72,13 @@ stat_log_write(char *stat_buffer) {
 void stat_task(void * pvParameters) {
 	//need to create buffer to hold returned ASCII data regarding task run percentages
 	//size of buffer is approx. 40 bytes per task.  Assuming five tasks, can increase later if needed
-	char stat_buffer[200];
+	//overshooting a bit as sometimes freeRTOS tasks/functions get included as well
+	char stat_buffer[280];
 	int card_mounted = 0;
 	trace_printf("Setting stat buffer to null \n");
 
 	//run loop to initially set all of buffer to null
-	for (int i = 0; i <= 199; i++)
+	for (int i = 0; i <= 279; i++)
 	{
 		stat_buffer[i] = '\0';
 	}
@@ -121,7 +121,7 @@ void stat_task(void * pvParameters) {
 			}
 
 			//after printing out buffer, zero again before next go around
-			for (int i = 0; i <= 199; i++)
+			for (int i = 0; i <= 279; i++)
 			{
 				stat_buffer[i] = '\0';
 			}

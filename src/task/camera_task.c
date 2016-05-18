@@ -60,6 +60,7 @@ camera_task_setup() {
 	trace_printf("camera_task: cleaning SD card\n");
 	f_delete("DATA.LOG");
 	f_delete("file.txt");
+	f_delete("stat.log");
 	F_FIND xFindStruct;
 	if (f_findfirst("*.JPG", &xFindStruct) == F_NO_ERROR) {
 		do {
