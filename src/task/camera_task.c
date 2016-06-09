@@ -251,6 +251,12 @@ camera_task_take_sample() {
 		sample->HTS221Temperature = hts221_read_temp_C();
 		sample->HTS221Humidity = hts221_read_hum_rel();
 		samples.Count++;
+
+		trace_printf("camera_task: | %2.2f C | %4.0f mbar | %2.2f C | %2.2f %%rHum |\n",
+				sample->LPS331Temperature,
+				sample->LPS331Pressure,
+				sample->HTS221Temperature,
+				sample->HTS221Humidity);
 	}
 
 	/* Try to persist the samples. */
@@ -350,6 +356,12 @@ camera_task_take_photo() {
 		return;
 	}
 
+	/* Wake the camera from low power state. */
+	if (arducam_standby_clear() != DEVICES_OK) {
+		trace_printf("camera_task: wake camera failed\n");
+		goto error;
+	}
+
 	/* Trigger a new capture. */
 	uint32_t remainingBytes;
 	if (   arducam_start_capture()               != DEVICES_OK
@@ -405,6 +417,12 @@ camera_task_take_photo() {
 	pxLog = NULL;
 
 	trace_printf("camera_task: capture complete\n");
+
+	/* Put the camera from low power state. */
+	if (arducam_standby_set() != DEVICES_OK) {
+		trace_printf("camera_task: sleep camera failed\n");
+		goto error;
+	}
 
 	/* Fall through and clean up. */
 error:

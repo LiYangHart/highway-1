@@ -67,7 +67,6 @@ Devices_StatusTypeDef
 arducam_setup() {
 	uint8_t flags;
 
-
 	spi_release(SLAVE_ARDUCAM);
 	vTaskDelay(50);
 	spi_select(SLAVE_ARDUCAM);
@@ -120,57 +119,67 @@ arducam_start_capture() {
 }
 
 /**
- * function to set arducam into low-power mode between taking images
+ * Put the ArduCAM into standby (low power) mode.
  */
-
 Devices_StatusTypeDef
-arducam_low_power_set(){
-	uint8_t gpio_value;
+arducam_standby_set(){
+	uint8_t gpioValue;
 
 	spi_select(SLAVE_ARDUCAM);
 
-	//read gpio register first, then apply mask to set low-power mode
-	if (spi_read8(&hspi, ARDUCHIP_GPIO_READ, &gpio_value, 1) != DEVICES_OK){
+	/* Read the GPIO register status to find the STNDBY state. */
+	if (spi_read8(&hspi, ARDUCHIP_GPIO_READ, &gpioValue, 1) != DEVICES_OK){
 		spi_release(SLAVE_ARDUCAM);
-		trace_printf("Error reading GPIO register \n");
+		trace_printf("arducam: read GPIO register failed\n");
 		return DEVICES_ERROR;
 	}
 
-	gpio_value = gpio_value | STNDBY_ENABLE_MASK;
+	/* Check the status of the STNDBY flag before setting. */
+	if ((gpioValue & STNDBY_ENABLE_MASK) != STNDBY_ENABLE_MASK) {
+		/* Need to set the STNDBY flag. */
+		gpioValue |= STNDBY_ENABLE_MASK;
 
-	if (spi_write8_8(&hspi, ARDUCHIP_GPIO_WRITE, gpio_value) != DEVICES_OK){
-		spi_release(SLAVE_ARDUCAM);
-		trace_printf("Error setting GPIO register \n");
-		return DEVICES_ERROR;
+		/* Write the new GPIO register value. */
+		if (spi_write8_8(&hspi, ARDUCHIP_GPIO_WRITE, gpioValue) != DEVICES_OK){
+			spi_release(SLAVE_ARDUCAM);
+			trace_printf("arducam: write GPIO register failed\n");
+			return DEVICES_ERROR;
+		}
 	}
+
 	spi_release(SLAVE_ARDUCAM);
 	return DEVICES_OK;
 }
 
 /**
- * function to take Arducam back out of low-power mode
+ * Take the ArduCAM out of standby (low power) mode.
  */
-
 Devices_StatusTypeDef
-arducam_low_power_remove(){
-	uint8_t gpio_value;
+arducam_standby_clear(){
+	uint8_t gpioValue;
 
 	spi_select(SLAVE_ARDUCAM);
 
-	//read gpio register first, then apply mask to remove low-power mode
-	if (spi_read8(&hspi, ARDUCHIP_GPIO_READ, &gpio_value, 1) != DEVICES_OK){
+	/* Read the GPIO register status to find the STNDBY state. */
+	if (spi_read8(&hspi, ARDUCHIP_GPIO_READ, &gpioValue, 1) != DEVICES_OK){
 		spi_release(SLAVE_ARDUCAM);
-		trace_printf("Error reading GPIO register \n");
+		trace_printf("arducam: read GPIO register failed\n");
 		return DEVICES_ERROR;
 	}
 
-	gpio_value = gpio_value & !STNDBY_ENABLE_MASK;
+	/* Check the status of the STNDBY flag before setting. */
+	if ((gpioValue & STNDBY_ENABLE_MASK) != 0) {
+		/* Need to clear the STNDBY flag. */
+		gpioValue &= !STNDBY_ENABLE_MASK;
 
-	if (spi_write8_8(&hspi, ARDUCHIP_GPIO_WRITE, gpio_value) != DEVICES_OK){
-		spi_release(SLAVE_ARDUCAM);
-		trace_printf("Error setting GPIO register \n");
-		return DEVICES_ERROR;
+		/* Write the new GPIO register value. */
+		if (spi_write8_8(&hspi, ARDUCHIP_GPIO_WRITE, gpioValue) != DEVICES_OK){
+			spi_release(SLAVE_ARDUCAM);
+			trace_printf("arducam: write GPIO register failed\n");
+			return DEVICES_ERROR;
+		}
 	}
+
 	spi_release(SLAVE_ARDUCAM);
 	return DEVICES_OK;
 }
@@ -226,7 +235,6 @@ arducam_wait_capture(uint32_t* capture_length) {
 	}
 	spi_release(SLAVE_ARDUCAM);
 	*capture_length |= ((value & 0x7) << 16);
-
 
 	spi_release(SLAVE_ARDUCAM);
 	return DEVICES_OK;

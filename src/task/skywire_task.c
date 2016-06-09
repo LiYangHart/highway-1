@@ -32,7 +32,7 @@ Attachment* pManifestHead;
 Attachment* pManifestItem;
 uint32_t written;
 F_FILE* pxManifestFile;
-uint8_t bFailed;
+uint8_t bFailed = 0;
 
 /**
  * Create the Skywire task.
@@ -244,8 +244,13 @@ skywire_task_pdp_enable() {
 success:
 	trace_printf("skywire_task: PDP enable success\n");
 
-	/* Start periodically sending the SD card contents to the server. */
-	xTimerChangePeriod(xSkywireTimer, SKYWIRE_XMIT_INTERVAL, 0);
+	if (bFailed) {
+		/* Retry quickly because the last attempt to transmit failed. */
+		xTimerChangePeriod(xSkywireTimer, 1000, 0);
+	} else {
+		/* Start periodically sending the SD card contents to the server. */
+		xTimerChangePeriod(xSkywireTimer, SKYWIRE_XMIT_INTERVAL, 0);
+	}
 	vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_XMIT_START);
 	xTimerStart(xSkywireTimer, 0);
 	return;
