@@ -696,6 +696,25 @@ RegisterTuple16_8 ov5642_dvp_fmt_jpeg_qvga[] = {
 };
 
 /**
+ * Increase the JPEG capture resolution to 720p.
+ * Taken from ArduCAM project.
+ */
+RegisterTuple16_8 ov5642_res_720P[] = {
+	/* 1280x720 */
+	{0x5001, 0xff},
+	{0x3808 ,0x05},
+	{0x3809 ,0x00},
+	{0x380a ,0x02},
+	{0x380b ,0xd0},
+
+	{0x3818, 0xA8},
+	{0x3621, 0x10},
+	{0x3801, 0xC8},
+
+	{0xFFFF, 0xFF}
+};
+
+/**
  * Increase the JPEG capture resolution to 1080p.
  * Taken from ArduCAM project.
  */
@@ -713,3 +732,6 @@ RegisterTuple16_8 ov5642_res_1080P[] = {
 
 	{0xFFFF, 0xFF}
 };
+
+
+

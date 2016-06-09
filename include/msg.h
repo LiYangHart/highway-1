@@ -28,16 +28,20 @@ typedef struct _Msg {
 
 /* Camera task messages */
 #define MSG_CAMERA_SETUP               0x10
-#define MSG_CAMERA_MOUNT               0x11
-#define MSG_CAMERA_SAMPLE              0x12
-#define MSG_CAMERA_PHOTO               0x13
+#define MSG_CAMERA_MOUNT_SD            0x11
+#define MSG_CAMERA_CLEAN_SD            0x12
+#define MSG_CAMERA_SAMPLE              0x13
+#define MSG_CAMERA_PHOTO               0x14
+#define MSG_CAMERA_WRITE_SAMPLES       0x15
 
 /* Skywire task messages */
 #define MSG_SKYWIRE_SETUP              0x20
 #define MSG_SKYWIRE_ACTIVATE           0x21
 #define MSG_SKYWIRE_CONFIG             0x22
 #define MSG_SKYWIRE_PDP_ENABLE         0x23
-#define MSG_SKYWIRE_XMIT               0x24
+#define MSG_SKYWIRE_XMIT_START         0x24
+#define MSG_SKYWIRE_XMIT_BUFFER        0x25
+#define MSG_SKYWIRE_XMIT_DONE          0x26
 
 #ifdef __cplusplus
 }

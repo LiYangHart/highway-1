@@ -10,20 +10,29 @@
 #include <fat_sl.h>
 #include "diag/Trace.h"
 
-/* Function prototypes. */
 void skywire_task(void * pvParameters);
 void skywire_timer_elapsed(TimerHandle_t xTimer);
-uint8_t skywire_task_setup();
-uint8_t skywire_task_activate();
-uint8_t skywire_task_config();
-uint8_t skywire_task_pdp_enable();
-uint8_t skywire_task_transmit();
+void skywire_task_setup();
+void skywire_task_activate();
+void skywire_task_config();
+void skywire_task_pdp_enable();
+void skywire_task_transmit_start();
+void skywire_task_transmit_buffer();
+void skywire_task_transmit_done();
 
-/* Variables and handles. */
+uint8_t add_to_manifest(Attachment** head, Attachment** tail, char* file);
+uint8_t get_manifest(Attachment** manifest);
+void free_manifest(Attachment* manifest, uint8_t deleteFiles);
+
 QueueHandle_t xSkywireQueue;
 TimerHandle_t xSkywireTimer;
 ATDevice dev;
 char buffer[512];
+Attachment* pManifestHead;
+Attachment* pManifestItem;
+uint32_t written;
+F_FILE* pxManifestFile;
+uint8_t bFailed;
 
 /**
  * Create the Skywire task.
@@ -107,8 +116,14 @@ skywire_task(void* pvParameters __attribute__((unused))) {
 			/* Connect to the cellular network. */
 			skywire_task_pdp_enable();
 			break;
-		case MSG_SKYWIRE_XMIT:
-			skywire_task_transmit();
+		case MSG_SKYWIRE_XMIT_START:
+			skywire_task_transmit_start();
+			break;
+		case MSG_SKYWIRE_XMIT_BUFFER:
+			skywire_task_transmit_buffer();
+			break;
+		case MSG_SKYWIRE_XMIT_DONE:
+			skywire_task_transmit_done();
 			break;
 		}
 	}
@@ -119,7 +134,7 @@ skywire_task(void* pvParameters __attribute__((unused))) {
 /**
  * Initialize the peripherals for this task.
  */
-uint8_t
+void
 skywire_task_setup() {
 	trace_printf("skywire_task: setup\n");
 
@@ -130,14 +145,12 @@ skywire_task_setup() {
 	Msg msg;
 	msg.message = MSG_SKYWIRE_ACTIVATE;
 	xQueueSend(xSkywireQueue, &msg, 0);
-
-	return 1;
 }
 
 /**
  * Execute the modem's power-on sequence.
  */
-uint8_t
+void
 skywire_task_activate() {
 	trace_printf("skywire_task: activating...\n");
 
@@ -147,16 +160,14 @@ skywire_task_activate() {
 
 	/* The Skywire will not respond for at least 15 seconds. */
 	xTimerChangePeriod(xSkywireTimer, 15000, 0);
-	vTimerSetTimerID(xSkywireTimer, MSG_SKYWIRE_CONFIG);
+	vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_CONFIG);
 	xTimerStart(xSkywireTimer, 0);
-
-	return 1;
 }
 
 /**
  * Configure the modem after power-on.
  */
-uint8_t
+void
 skywire_task_config() {
 	trace_printf("skywire_task: configuring...\n");
 
@@ -178,22 +189,21 @@ skywire_task_config() {
 	xQueueSend(xSkywireQueue, &msg, 0);
 
 	trace_printf("skywire_task: configure success\n");
-	return 0;
+	return;
 
 error:
 	trace_printf("skywire_task: configure failed\n");
 
 	/* Start the activation workflow from the beginning. */
 	xTimerChangePeriod(xSkywireTimer, 15000, 0);
-	vTimerSetTimerID(xSkywireTimer, MSG_SKYWIRE_ACTIVATE);
+	vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_ACTIVATE);
 	xTimerStart(xSkywireTimer, 0);
-	return 1;
 }
 
 /**
  * Activate a PDP context such that IP connections can be created.
  */
-uint8_t
+void
 skywire_task_pdp_enable() {
 	trace_printf("skywire_task: PDP context enable...\n");
 
@@ -202,7 +212,7 @@ skywire_task_pdp_enable() {
 	 */
 	if (   hayes_at(&dev, "AT#SGACT?\r\n")                 != HAYES_OK
 		|| hayes_res(&dev, pred_ends_with, "OK\r\n", 1000) != HAYES_OK) {
-		return 0;
+		goto error;
 	} else {
 		int cid, stat;
 		char* line = NULL;
@@ -233,29 +243,207 @@ skywire_task_pdp_enable() {
 
 success:
 	trace_printf("skywire_task: PDP enable success\n");
-	return 1;
+
+	/* Start periodically sending the SD card contents to the server. */
+	xTimerChangePeriod(xSkywireTimer, SKYWIRE_XMIT_INTERVAL, 0);
+	vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_XMIT_START);
+	xTimerStart(xSkywireTimer, 0);
+	return;
 
 error:
 	trace_printf("skywire_task: PDP enable failed\n");
 
 	/* Start the activation workflow from the beginning. */
-	xTimerChangePeriod(xSkywireTimer, 15000, 0);
-	vTimerSetTimerID(xSkywireTimer, MSG_SKYWIRE_ACTIVATE);
+	xTimerChangePeriod(xSkywireTimer, 1000, 0);
+	vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_ACTIVATE);
 	xTimerStart(xSkywireTimer, 0);
-	return 0;
 }
 
 /**
- * Transmit the SD card contents to the server.
+ * Use a POST to upload the manifest to the server.
+ * Write slowly until we can support software flow control.
+ *
+ * Each HTTP chunk contains one attachment.
+ * The first 32 bytes of the chunk encode the attachment length and filename.
+ * Therefore, each HTTP chunk length is the attachment length plus 32 bytes.
  */
-uint8_t
-skywire_task_transmit() {
-	trace_printf("skywire_task: transmit\n");
+void
+skywire_task_transmit_start() {
+	if (!spi_take()) {
+		/* Keep trying to obtain access to the SPI bus. */
+		xTimerChangePeriod(xSkywireTimer, 100, 0);
+		vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_XMIT_START);
+		xTimerStart(xSkywireTimer, 0);
+		return;
+	} else {
+		trace_printf("skywire_task: transmit start\n");
+		bFailed = 0;
+	}
 
-	xTimerChangePeriod(xSkywireTimer, 20000, 0);
-	vTimerSetTimerID(xSkywireTimer, MSG_SKYWIRE_XMIT);
+	/* Get a manifest of files to POST to the server. */
+	pManifestHead = NULL;
+	written = 0;
+	if (!get_manifest(&pManifestHead)) {
+		trace_printf("skywire_task: parse manifest failed\n");
+		goto error;
+	} else {
+		pManifestItem = pManifestHead;
+	}
+
+	/* Open a socket data connection to the server. */
+	if (   hayes_at(&dev, "AT#SD=1,0,80,\"" NGROK_TUNNEL "\"\r\n") != HAYES_OK
+		|| hayes_res(&dev, pred_ends_with, "CONNECT\r\n", 10000)   != HAYES_OK) {
+		trace_printf("skywire_task: open socket data failed\n");
+		goto error;
+	}
+
+	/* Output the HTTP header; POST with chunked encoding. */
+	if (hayes_at(&dev,
+			"POST /data HTTP/1.1\r\n" \
+			"Host: " NGROK_TUNNEL "\r\n" \
+			"Content-Type: application/octet-stream\r\n" \
+			"Transfer-Encoding: chunked\r\n" \
+			"Connection: close\r\n\r\n"
+	) != HAYES_OK) {
+		trace_printf("skywire_task: output HTTP header failed\n");
+		goto error;
+	}
+
+	xTimerChangePeriod(xSkywireTimer, 100, 0);
+	vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_XMIT_BUFFER);
 	xTimerStart(xSkywireTimer, 0);
-	return 1;
+	return;
+
+error:
+	bFailed = 1;
+	xTimerChangePeriod(xSkywireTimer, 1000, 0);
+	vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_XMIT_DONE);
+	xTimerStart(xSkywireTimer, 0);
+}
+
+/**
+ * Transmit a buffers worth of data.
+ * Write HTTP chunk headers and footers as required.
+ * Write attachment headers as required.
+ */
+void
+skywire_task_transmit_buffer() {
+	if (pManifestItem != NULL) {
+		/* Write a manifest item header if this is a new item. */
+		if (written == 0) {
+			trace_printf("skywire_task: transmit %s\n", pManifestItem->name);
+
+			pxManifestFile = f_open(pManifestItem->name, "r");
+			if (pxManifestFile == NULL) {
+				trace_printf("skywire_task; open %s failed", pManifestItem->name);
+				goto error;
+			}
+
+			/* Write the start of the HTTP chunk. */
+			int length = pManifestItem->length;
+			snprintf(dev.buffer, 32, "%x\r\n", 32 + length);
+			hayes_at(&dev, dev.buffer);
+
+			/* Write the attachment header. */
+			memset(dev.buffer, '\0', 32);
+			snprintf(dev.buffer, 32, "%s,%d\r\n", pManifestItem->name, length);
+			hayes_write(&dev, (uint8_t*)dev.buffer, 0, 32);
+		}
+
+		/* Write a some data to the modem. */
+		if (written < pManifestItem->length) {
+			/* Write 128 bytes per call - rate limiting IO to Skywire. */
+			uint32_t read = f_read(dev.buffer, 1, 128, pxManifestFile);
+			written += read;
+			hayes_write(&dev, (uint8_t*)dev.buffer, 0, read);
+			//trace_printf("skywire_task: wrote %d bytes (%d of %d)\n", read, written, pManifestItem->length);
+		}
+
+		if (written >= pManifestItem->length) {
+			/* Write the end of the HTTP chunk. */
+			hayes_at(&dev, "\r\n");
+
+			written = 0;
+			f_close(pxManifestFile);
+
+			pManifestItem = pManifestItem->next;
+		}
+
+		xTimerChangePeriod(xSkywireTimer, 50, 0);
+		vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_XMIT_BUFFER);
+		xTimerStart(xSkywireTimer, 0);
+	} else {
+		/* Write the trailing HTTP chunk and termination. */
+		hayes_at(&dev, "0\r\n\r\n");
+
+		xTimerChangePeriod(xSkywireTimer, 500, 0);
+		vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_XMIT_DONE);
+		xTimerStart(xSkywireTimer, 0);
+	}
+
+	return;
+
+error:
+	bFailed = 1;
+	xTimerChangePeriod(xSkywireTimer, 1000, 0);
+	vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_XMIT_DONE);
+	xTimerStart(xSkywireTimer, 0);
+}
+
+/**
+ * Parse the HTTP response and clean up resources.
+ */
+void
+skywire_task_transmit_done() {
+	if (bFailed) {
+		/* Send an escape sequence to exit data mode. */
+		vTaskDelay(1000);
+		hayes_at(&dev, "+++\r\n");
+		vTaskDelay(1000);
+	} else {
+		/**
+		 * Expect a 200 OK response.
+		 * Skip the headers by looking for "\r\n\r\n".
+		 * Look for no carrier when the connection is closed.
+		 */
+		if (   hayes_res(&dev, pred_ends_with, "200 OK\r\n", 5000)     != HAYES_OK
+			|| hayes_res(&dev, pred_ends_with, "\r\n\r\n", 2000)       != HAYES_OK
+			|| hayes_res(&dev, pred_ends_with, "NO CARRIER\r\n", 2000) != HAYES_OK) {
+			trace_printf("skywire_task: response not as expected\n");
+		} else {
+			int sl = 0;
+			char* line = NULL;
+			SLUpdate slUpdate = { 100 };
+			while ((line = tokenize_res(&dev, line)) != NULL) {
+				if (sscanf(line, "SL=%d,EOM", &sl) == 1) {
+					trace_printf("skywire_task: SL = %d\n", sl);
+					slUpdate.limit = (uint8_t)sl;
+					/*xQueueSend(xSLUpdatesQueue, (void*)&slUpdate, 0);*/
+					break;
+				}
+			}
+		}
+	}
+
+	/* Free allocated memory and delete uploaded files. */
+	if (pManifestHead != NULL) {
+		free_manifest(pManifestHead, (bFailed ? 0 : 1));
+	}
+
+	/* Release task resources. */
+	spi_give();
+
+	if (bFailed) {
+		/* Re-initialize the modem. */
+		xTimerChangePeriod(xSkywireTimer, 1000, 0);
+		vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_ACTIVATE);
+		xTimerStart(xSkywireTimer, 0);
+	} else {
+		/* Schedule the next transmit interval. */
+		xTimerChangePeriod(xSkywireTimer, SKYWIRE_XMIT_INTERVAL, 0);
+		vTimerSetTimerID(xSkywireTimer, (void*)MSG_SKYWIRE_XMIT_START);
+		xTimerStart(xSkywireTimer, 0);
+	}
 }
 
 // POST manifest ---------------------------------------------------------------
@@ -362,101 +550,3 @@ free_manifest(Attachment* manifest, uint8_t deleteFiles) {
 		manifest = next;
 	}
 }
-
-/**
- * Use a POST to upload the manifest to the server.
- * Write slowly until we can support software flow control.
- *
- * Each HTTP chunk contains one attachment.
- * The first 32 bytes of the chunk encode the attachment length and filename.
- * Therefore, each HTTP chunk length is the attachment length plus 32 bytes.
- */
-uint8_t
-post_manifest(ATDevice* dev, Attachment* manifest) {
-	if (   hayes_at(dev, "AT#SD=1,0,80,\"" NGROK_TUNNEL "\"\r\n") != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "CONNECT\r\n", 10000)   != HAYES_OK) {
-		trace_printf("skywire_task: open socket data failed\n");
-		return 0;
-	}
-
-	trace_printf("skywire_task: starting POST\n");
-
-	/* Output the HTTP header - specify POST with chunked encoding. */
-	hayes_at(dev,
-			"POST /data HTTP/1.1\r\n" \
-			"Host: " NGROK_TUNNEL "\r\n" \
-			"Content-Type: application/octet-stream\r\n" \
-			"Transfer-Encoding: chunked\r\n" \
-			"Connection: close\r\n\r\n"
-	);
-
-	while (manifest != NULL) {
-		// Write file
-		F_FILE* pxFile = f_open(manifest->name, "r");
-		if (pxFile == NULL) {
-			trace_printf("failed to open file");
-			continue;
-		}
-
-		/* Write the start of the HTTP chunk. */
-		int length = manifest->length;
-		snprintf(dev->buffer, 32, "%x\r\n", 32 +length);
-		hayes_at(dev, dev->buffer);
-
-		/* Write the attachment header. */
-		memset(dev->buffer, '\0', 32);
-		snprintf(dev->buffer, 32, "%s,%d\r\n", manifest->name, length);
-		hayes_write(dev, (uint8_t*)dev->buffer, 0, 32);
-
-		/* Write the attachment. */
-		uint32_t written = 0;
-		while (written < manifest->length) {
-			uint32_t read = f_read(dev->buffer, 1, 128, pxFile);
-			written += read;
-			hayes_write(dev, (uint8_t*)dev->buffer, 0, read);
-		}
-
-		f_close(pxFile);
-		pxFile = NULL;
-
-		/* Write the end of the HTTP chunk. */
-		hayes_at(dev, "\r\n");
-		manifest = manifest->next;
-	}
-
-	/* Write the trailing HTTP chunk and termination. */
-	hayes_at(dev, "0\r\n\r\n");
-	return 1;
-}
-
-// Task ------------------------------------------------------------------------
-
-uint8_t
-parse_response(ATDevice* dev, uint8_t* speedLimit) {
-	/**
-	 * Expect a 200 OK response.
-	 * Skip the headers by looking for "\r\n\r\n".
-	 * Look for no carrier when the connection is closed.
-	 */
-	if (   hayes_res(dev, pred_ends_with, "200 OK\r\n", 20000)    != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "\r\n\r\n", 10000)       != HAYES_OK
-		|| hayes_res(dev, pred_ends_with, "NO CARRIER\r\n", 10000) != HAYES_OK) {
-		trace_printf("skywire_task: response not as expected\n");
-		return 0;
-	}
-
-	int sl = 0;
-	char* line = NULL;
-	while ((line = tokenize_res(dev, line)) != NULL) {
-		if (sscanf(line, "SL=%d,EOM", &sl) == 1) {
-			//adding line to see if incoming SL value is good
-			if (sl >= 1 && sl <= 255){
-				*speedLimit = sl;
-				return 1;
-			}
-		}
-	}
-	*speedLimit = 100;
-	return 0;
-}
-

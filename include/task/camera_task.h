@@ -23,6 +23,12 @@ extern "C" {
 #define CAMERA_TASK_NAME "CAMR"
 #define CAMERA_TASK_STACK_SIZE 2048
 
+#define SAMPLE_BUFFER_SIZE 64
+#define CAMERA_CLEAN_SD 1
+
+#define CAMERA_SAMPLE_INTERVAL 5000
+#define CAMERA_PHOTO_INTERVAL 60000
+
 extern QueueHandle_t xCameraQueue;
 
 typedef struct _Sample {
@@ -34,7 +40,7 @@ typedef struct _Sample {
 } Sample;
 
 typedef struct _SampleBuffer {
-	Sample Buffer[64];
+	Sample Buffer[SAMPLE_BUFFER_SIZE];
 	uint8_t Count;
 } SampleBuffer;
 

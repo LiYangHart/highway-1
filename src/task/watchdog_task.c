@@ -85,7 +85,6 @@ watchdog_task(void * pvParameters __attribute__((unused))) {
 			/* Set the OK flag for the task. */
 			/* Param1 should contain the mask we provided in the ping. */
 			taskOkFlags |= msg.param1;
-			trace_printf("watchdog_task: task OK %d\n", msg.param1);
 			break;
 		case MSG_IWDG_REFRESH:
 			/* Refresh the watchdog if all tasks are OK. */

@@ -22,7 +22,9 @@ extern QueueHandle_t xSkywireQueue;
 #define SKYWIRE_TASK_NAME "SKYW"
 #define SKYWIRE_TASK_STACK_SIZE 2586
 
-#define NGROK_TUNNEL "35942d70.ngrok.io"
+#define NGROK_TUNNEL "ea9e28a7.ngrok.io"
+
+#define SKYWIRE_XMIT_INTERVAL (3 * 60000)
 
 /* An item to be POSTed to the server. */
 typedef struct _Attachment {

@@ -344,7 +344,7 @@ ov5642_setup() {
 		return DEVICES_ERROR;
 	}
 
-	if (i2c_array16_8(OV5642_ADDRESS_W, ov5642_res_1080P) != DEVICES_OK) {
+	if (i2c_array16_8(OV5642_ADDRESS_W, ov5642_res_720P) != DEVICES_OK) {
 		return DEVICES_ERROR;
 	}
 
