@@ -423,7 +423,7 @@ skywire_task_transmit_done() {
 				if (sscanf(line, "SL=%d,EOM", &sl) == 1) {
 					trace_printf("skywire_task: SL = %d\n", sl);
 					slUpdate.limit = (uint8_t)sl;
-					/*xQueueSend(xSLUpdatesQueue, (void*)&slUpdate, 0);*/
+					xQueueSend(xSLUpdatesQueue, (void*)&slUpdate, 0);
 					break;
 				}
 			}

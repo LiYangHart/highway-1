@@ -20,7 +20,7 @@
 /* Enable or disable tasks for development. */
 #define WATCHDOG_TASK 1
 #define SKYWIRE_TASK 1
-#define BEACON_TASK 0
+#define BEACON_TASK 1
 #define CAMERA_TASK 1
 
 void

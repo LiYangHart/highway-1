@@ -22,7 +22,7 @@ extern QueueHandle_t xSkywireQueue;
 #define SKYWIRE_TASK_NAME "SKYW"
 #define SKYWIRE_TASK_STACK_SIZE 2586
 
-#define NGROK_TUNNEL "ea9e28a7.ngrok.io"
+#define NGROK_TUNNEL "4b9cc537.ngrok.io"
 
 #define SKYWIRE_XMIT_INTERVAL (3 * 60000)
 

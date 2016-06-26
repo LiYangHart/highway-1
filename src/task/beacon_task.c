@@ -27,7 +27,7 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 	//with Xbee setup, want to first enter command mode to set proper fields for Xbee operation
 	//done by sending three +++ quickly to Xbee, then waiting for one second
 	if (hayes_at(xbee_transmit, "+++")								!= HAYES_OK
-		|| hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1050)	!= HAYES_OK){
+		|| hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)	!= HAYES_OK){
 			trace_printf("Failed to enter command mode \n");
 			return 0;
 	}
@@ -40,29 +40,29 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 	//setting parameters first, will read back certain critical ones after
 
 	if (hayes_at(xbee_transmit, "ATPL0\r")							!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATCE2\r")						!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATNH1\r")						!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATDH00000000\r")					!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATDL0000FFFF\r")					!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATTO41\r")						!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATD00\r")						!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATD50\r")						!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATD70\r")						!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATD80\r")						!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATPD7FFF\r")						!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATAV1\r")						!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)		!= HAYES_OK) {
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK) {
 			trace_printf("Sending configuration commands failed \n");
 			return 0;
 	}
@@ -73,9 +73,9 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 
 	//after setting other parameters, configure encryption
 	if(hayes_at(xbee_transmit, "ATEE1\r")										!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)				!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)				!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATKY00112233445566778899AABBCCDDEEFF\r")		!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1200)				!= HAYES_OK) {
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)				!= HAYES_OK) {
 		trace_printf("Configuring encryption failed \n");
 		return 0;
 	}
@@ -88,10 +88,10 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 
 	//first, checking preamble and network IDs
 	if (hayes_at(xbee_transmit, "ATHP\r")							!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 1000)		!= HAYES_OK) {
+		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 2000)		!= HAYES_OK) {
 			trace_printf("Preamble not set correctly, changing \n");
 			if (hayes_at(xbee_transmit, "ATHP0\r")							!= HAYES_OK
-				||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1000)		!= HAYES_OK) {
+				||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK) {
 				trace_printf("Error setting preamble \n");
 				return 0;
 			}
@@ -102,10 +102,10 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 	}
 
 	if (hayes_at(xbee_transmit, "ATID\r")								!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "7FFF\r", 1000)		!= HAYES_OK) {
+		||hayes_res(xbee_transmit, pred_ends_with, "7FFF\r", 2000)		!= HAYES_OK) {
 			trace_printf("Network ID not set correctly, changing \n");
 			if (hayes_at(xbee_transmit, "ATID7FFF\r")						!= HAYES_OK
-				||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1000)		!= HAYES_OK) {
+				||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK) {
 					trace_printf("Error setting network ID \n");
 					return 0;
 			}
@@ -117,10 +117,10 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 
 	//checking baud rate
 	if (hayes_at(xbee_transmit, "ATBD\r")								!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "3\r", 1000)			!= HAYES_OK) {
+		||hayes_res(xbee_transmit, pred_ends_with, "3\r", 2000)			!= HAYES_OK) {
 			trace_printf("Baud rate not set correctly, changing \n");
 			if (hayes_at(xbee_transmit, "ATBD3\r")							!= HAYES_OK
-				||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1000)		!= HAYES_OK) {
+				||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 2000)		!= HAYES_OK) {
 					trace_printf("Error setting baud rate \n");
 					return 0;
 			}
@@ -132,7 +132,7 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 
 	//double check power and destination address fields
 	if (hayes_at(xbee_transmit, "ATPL\r")										!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 1200)				!= HAYES_OK ){
+		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 2000)				!= HAYES_OK ){
 		trace_printf("Error in checking power level \n");
 		return 0;
 	}
@@ -141,7 +141,7 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 	}
 
 	if (hayes_at(xbee_transmit, "ATDH\r")									!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 1200)		!= HAYES_OK){
+		||hayes_res(xbee_transmit, pred_ends_with, "0\r", 2000)		!= HAYES_OK){
 		trace_printf("Error with destination high \n");
 		return 0;
 	}
@@ -151,7 +151,7 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 
 
 	if (hayes_at(xbee_transmit, "ATDL\r")									!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "FFFF\r", 1200)		!= HAYES_OK) {
+		||hayes_res(xbee_transmit, pred_ends_with, "FFFF\r", 2000)		!= HAYES_OK) {
 			trace_printf("Error with destination low \n");
 			return 0;
 	}
@@ -162,7 +162,7 @@ xbee_transmit_setup(ATDevice* xbee_transmit) {
 
 	//after configuring/checking everything, apply changes and exit command mode
 	if (hayes_at(xbee_transmit, "ATAC\r")							!= HAYES_OK
-		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1000)		!= HAYES_OK
+		||hayes_res(xbee_transmit, pred_ends_with, "OK\r", 1500)		!= HAYES_OK
 		||hayes_at(xbee_transmit, "ATCN\r")							!= HAYES_OK) {
 			trace_printf("Error applying changes \n");
 			return 0;
@@ -259,7 +259,7 @@ beacon_task(void * pvParameters) {
 		/* Echo received bytes from UART6 to the console. */
 		//convert integer speed value to string and pad if needed
 		if (set_up_okay == 1){
-			trace_printf("Constructing string \n");
+			//trace_printf("Constructing string \n");
 
 			SLUpdate slUpdate;
 			if (xQueueReceive(xSLUpdatesQueue, &slUpdate, 0) == pdTRUE) {
@@ -269,12 +269,12 @@ beacon_task(void * pvParameters) {
 			//check that speed limit value is within limits.  If not, use previous
 			if (speed >= l_limit && speed <= u_limit) {
 				snprintf(speed_string, 4, "%d", speed);
-				trace_printf("%s \n", speed_string);
+				//trace_printf("%s \n", speed_string);
 				prev_speed = speed;
 			}
 			else {
 				snprintf(speed_string, 4, "%d", prev_speed);
-				trace_printf("%s \n", speed_string);
+				//trace_printf("%s \n", speed_string);
 			}
 
 			speed_cat[0] = '\0';
@@ -294,15 +294,14 @@ beacon_task(void * pvParameters) {
 				strcpy(speed_cat, speed_string);
 			}
 
-			trace_printf("concatenated speed value \n");
-			trace_printf("%s \n", speed_cat);
+			//trace_printf("concatenated speed value \n");
+			//trace_printf("%s \n", speed_cat);
 			//construct phrase to be sent, '$' sign on end to avoid passing along junk
 			strcat(send_string, text_start);
 			strcat(send_string, speed_cat);
 			strcat(send_string, text_end);
 			strcat(send_string, dollar);
-			trace_printf("Sending phrase: %s", send_string);
-			trace_printf("\n");
+			trace_printf("beacon: sending phrase: %s\n", send_string);
 
 			//send string and do check to see if there was error
 			if (xbee_write((uint8_t*)send_string, 0, 14) != XBEE_OK){
@@ -313,7 +312,7 @@ beacon_task(void * pvParameters) {
 			//otherwise, reset error count
 			else {
 				error_count = 0;
-				speed++;
+				//speed++;
 			}
 
 			//if error count exceeds threshold, set back to 0 and flag module to be re-configured
