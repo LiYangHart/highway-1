@@ -43,6 +43,9 @@ typedef struct _Msg {
 #define MSG_SKYWIRE_XMIT_BUFFER        0x25
 #define MSG_SKYWIRE_XMIT_DONE          0x26
 
+/* Power task messages */
+#define MSG_POWER_SETUP                0x30
+
 #ifdef __cplusplus
 }
 #endif

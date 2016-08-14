@@ -1,6 +1,7 @@
 #include "task/watchdog_task.h"
 #include "task/skywire_task.h"
 #include "task/camera_task.h"
+#include "task/power_task.h"
 
 void watchdog_task(void * pvParameters);
 void watchdog_refresh(TimerHandle_t xTimer);
@@ -103,6 +104,10 @@ watchdog_task(void * pvParameters __attribute__((unused))) {
 			/* Request a status update from the Skywire task. */
 			msg.param1 = IWDG_SKYWIRE_MASK;
 			xQueueSend(xSkywireQueue, &msg, 0);
+
+			/* Request a status update from the power task. */
+			msg.param1 = IWDG_POWER_MASK;
+			xQueueSend(xPowerQueue, &msg, 0);
 
 			break;
 		}

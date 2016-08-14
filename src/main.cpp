@@ -16,12 +16,14 @@
 #include <task/beacon_task.h>
 #include <task/camera_task.h>
 #include <task/receive_task.h>
+#include <task/power_task.h>
 
 /* Enable or disable tasks for development. */
 #define WATCHDOG_TASK 1
 #define SKYWIRE_TASK 1
-#define BEACON_TASK 1
+#define BEACON_TASK 0
 #define CAMERA_TASK 1
+#define POWER_TASK 1
 
 void
 setup_task(void * pvParameters) {
@@ -38,6 +40,11 @@ setup_task(void * pvParameters) {
 	#if WATCHDOG_TASK
 	trace_printf("starting watchdog task\n");
 	watchdog_task_create();
+	#endif
+
+	#if POWER_TASK
+	trace_printf("starting power task\n");
+	power_task_create();
 	#endif
 
 	#if BEACON_TASK

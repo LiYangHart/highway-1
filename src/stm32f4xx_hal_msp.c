@@ -99,6 +99,23 @@ HAL_MspDeInit(void) {
 #endif
 
 void
+HAL_ADC_MspInit(ADC_HandleTypeDef* hadc) {
+	GPIO_InitTypeDef gpio_init;
+
+	/* Configure ADC1 to sample analog channels. */
+	if (hadc->Instance == ADC1) {
+		/* PA0
+		   Arduino header: A0 */
+		gpio_init.Pin = GPIO_PIN_0;
+		gpio_init.Mode = GPIO_MODE_INPUT;
+		gpio_init.Speed = GPIO_SPEED_HIGH;
+		gpio_init.Pull = GPIO_NOPULL;
+		gpio_init.Alternate = GPIO_AF0_MCO;
+		HAL_GPIO_Init(GPIOB, &gpio_init);
+	}
+}
+
+void
 HAL_SPI_MspInit(SPI_HandleTypeDef* hspi) {
 	GPIO_InitTypeDef gpio_init;
 
