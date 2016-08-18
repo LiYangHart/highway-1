@@ -229,6 +229,13 @@ camera_task_clean_sd() {
 			f_delete(xFindStruct.filename);
 		} while (f_findnext(&xFindStruct) == F_NO_ERROR);
 	}
+
+	if (f_findfirst("upload", &xFindStruct) != F_NO_ERROR) {
+		f_mkdir("upload");
+	}
+
+	f_chdir("upload");
+
 	spi_give();
 
 	/* Enable the timers for samples and photos. */

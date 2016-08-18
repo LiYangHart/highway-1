@@ -12,14 +12,17 @@
 #include "queue.h"
 
 #include <task/watchdog_task.h>
+#include <task/power_task.h>
+#include <task/camera_task.h>
+#include <task/upload_task.h>
 #include <task/skywire_task.h>
 #include <task/beacon_task.h>
-#include <task/camera_task.h>
 #include <task/receive_task.h>
-#include <task/power_task.h>
+
 
 /* Enable or disable tasks for development. */
-#define WATCHDOG_TASK 1
+#define WATCHDOG_TASK 0
+#define UPLOAD_TASK 1
 #define SKYWIRE_TASK 1
 #define BEACON_TASK 0
 #define CAMERA_TASK 1
@@ -47,6 +50,21 @@ setup_task(void * pvParameters) {
 	power_task_create();
 	#endif
 
+	#if CAMERA_TASK
+	trace_printf("starting camera task\n");
+	camera_task_create();
+	#endif
+
+	#if UPLOAD_TASK
+	trace_printf("starting upload task\n");
+	upload_task_create();
+	#endif
+
+	#if SKYWIRE_TASK
+	trace_printf("starting skywire task\n");
+	skywire_task_create();
+	#endif
+
 	#if BEACON_TASK
 	trace_printf("starting beacon task\n");
 	xTaskCreate(beacon_task,
@@ -55,16 +73,6 @@ setup_task(void * pvParameters) {
 			(void *)NULL,
 			tskIDLE_PRIORITY,
 			NULL);
-	#endif
-
-	#if CAMERA_TASK
-	trace_printf("starting camera task\n");
-	camera_task_create();
-	#endif
-
-	#if SKYWIRE_TASK
-	trace_printf("starting skywire task\n");
-	skywire_task_create();
 	#endif
 
 	#if RECEIVE_TASK

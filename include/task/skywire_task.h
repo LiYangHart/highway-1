@@ -17,21 +17,32 @@
 extern "C" {
 #endif
 
+#define SKYWIRE_STATE_POWER_OFF 0
+#define SKYWIRE_STATE_POWER_ON 1
+#define SKYWIRE_STATE_POWERING_ON 2
+#define SKYWIRE_STATE_POWERING_OFF 3
+#define SKYWIRE_STATE_CONNECTED 4
+
 extern QueueHandle_t xSkywireQueue;
 
 #define SKYWIRE_TASK_NAME "SKYW"
 #define SKYWIRE_TASK_STACK_SIZE 2586
 
+typedef struct _SkywireRequest {
+	uint16_t iHandle;
+	uint8_t bFileUpload;
+	char sMethod[16];
+	char sHost[64];
+	char sPath[64];
+	const char * sContentType;
+	char * sBody;
+} SkywireRequest;
+
+extern const char * CONTENT_TYPE_APPLICATION_JSON;
+extern const char * CONTENT_TYPE_OCTET_STREAM;
+
+/* Configurable options */
 #define NGROK_TUNNEL "4b9cc537.ngrok.io"
-
-#define SKYWIRE_XMIT_INTERVAL (3 * 60000)
-
-/* An item to be POSTed to the server. */
-typedef struct _Attachment {
-	char name[64];
-	uint32_t length;
-	struct _Attachment* next;
-} Attachment;
 
 uint8_t skywire_task_create();
 

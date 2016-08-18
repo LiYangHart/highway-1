@@ -26,11 +26,11 @@ void skywire_en(GPIO_PinState pinState);
 void skywire_rts(GPIO_PinState pinState);
 void skywire_init();
 void skywire_activate();
-uint8_t skywire_count();
+uint16_t skywire_count();
 uint8_t skywire_getc();
-uint8_t skywire_read(uint8_t* buffer, uint8_t position, uint8_t length);
+uint16_t skywire_read(uint8_t* buffer, uint16_t position, uint16_t length);
 
-Skywire_StatusTypeDef skywire_write(uint8_t* buffer, uint8_t start, uint8_t length);
+Skywire_StatusTypeDef skywire_write(uint8_t* buffer, uint16_t start, uint16_t length);
 Skywire_StatusTypeDef skywire_at(char* buffer);
 
 #ifdef __cplusplus

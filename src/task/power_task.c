@@ -1,9 +1,11 @@
+#include <task/power_task.h>
 #include <task/watchdog_task.h>
 #include <FreeRTOS.h>
 #include <semphr.h>
 #include <string.h>
 
 void power_timer_elapsed(TimerHandle_t xTimer);
+void power_task_setup();
 
 QueueHandle_t xPowerQueue;
 TimerHandle_t xPowerTimer;

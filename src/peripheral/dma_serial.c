@@ -10,7 +10,7 @@ head_ptr(DMA_SerialHandle* handle) {
 /**
  * Get the number of characters available in the serial buffer.
  */
-uint8_t
+uint16_t
 dma_serial_count(DMA_SerialHandle* handle) {
 	uint8_t const* head = head_ptr(handle);
 	uint8_t	const* tail = handle->rx_tail_ptr;
@@ -44,11 +44,11 @@ dma_serial_getc(DMA_SerialHandle* handle) {
  * Read up to 'length' characters from the ring buffer.
  */
 uint8_t
-dma_serial_read(DMA_SerialHandle* handle, uint8_t* buffer, uint8_t position,
-		uint8_t length) {
+dma_serial_read(DMA_SerialHandle* handle, uint8_t* buffer, uint16_t position,
+		uint16_t length) {
 
 	// TODO A proper implementation
-	uint8_t count = dma_serial_count(handle);
+	uint16_t count = dma_serial_count(handle);
 	if (length < count) {
 		count = length;
 	}

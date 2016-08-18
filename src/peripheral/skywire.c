@@ -2,12 +2,12 @@
 #include <peripheral/skywire.h>
 #include <string.h>
 
-uint8_t rx_buffer[128];
+uint8_t rx_buffer[512];
 DMA_SerialHandle skywire = {
 	{ 0 },
 	{ 0 },
 	rx_buffer,
-	128,
+	512,
 	rx_buffer
 };
 
@@ -99,7 +99,15 @@ skywire_activate() {
 	skywire_en(GPIO_PIN_RESET);
 }
 
-uint8_t
+/**
+ *
+ */
+void
+skywire_deactivate() {
+
+}
+
+uint16_t
 skywire_count() {
 	return dma_serial_count(&skywire);
 }
@@ -109,13 +117,13 @@ skywire_getc() {
 	return dma_serial_getc(&skywire);
 }
 
-uint8_t
-skywire_read(uint8_t* buffer, uint8_t position, uint8_t length) {
+uint16_t
+skywire_read(uint8_t* buffer, uint16_t position, uint16_t length) {
 	return dma_serial_read(&skywire, buffer, position, length);
 }
 
 Skywire_StatusTypeDef
-skywire_write(uint8_t* buffer, uint8_t start, uint8_t length) {
+skywire_write(uint8_t* buffer, uint16_t start, uint16_t length) {
 	return HAL_UART_Transmit(skywire_handle(), buffer + start, length, 10000);
 }
 

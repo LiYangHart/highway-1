@@ -33,12 +33,16 @@ extern QueueHandle_t xWatchdogQueue;
  */
 #define IWDG_PERIOD 0xFFF
 
-#define IWDG_SKYWIRE_MASK 0x01
+#define IWDG_POWER_MASK   0x01
 #define IWDG_CAMERA_MASK  0x02
-#define IWDG_POWER_MASK   0x04
+#define IWDG_UPLOAD_MASK  0x04
+#define IWDG_SKYWIRE_MASK 0x08
 
-#define IWDG_ALL_TASKS_OK (IWDG_SKYWIRE_MASK & IWDG_CAMERA_MASK & \
-	IWDG_POWER_MASK)
+#define IWDG_ALL_TASKS_OK ( \
+	IWDG_POWER_MASK & \
+	IWDG_CAMERA_MASK & \
+	IWDG_UPLOAD_MASK & \
+	IWDG_SKYWIRE_MASK )
 
 uint8_t watchdog_task_create();
 
