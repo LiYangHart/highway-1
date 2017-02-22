@@ -11,6 +11,8 @@
 #include <stm32f4xx_hal_conf.h>
 #include "FreeRTOS.h"
 
+#define SKYWIRE_DMA_BUFFER_LENGTH 512
+
 typedef enum {
 	SKYWIRE_OK      = HAL_OK,
 	SKYWIRE_ERROR   = HAL_ERROR,
@@ -25,7 +27,6 @@ UART_HandleTypeDef* skywire_handle();
 void skywire_en(GPIO_PinState pinState);
 void skywire_rts(GPIO_PinState pinState);
 void skywire_init();
-void skywire_activate();
 uint16_t skywire_count();
 uint8_t skywire_getc();
 uint16_t skywire_read(uint8_t* buffer, uint16_t position, uint16_t length);

@@ -15,7 +15,7 @@ hayes_write(ATDevice* dev, uint8_t* buffer, uint8_t start, uint8_t length) {
  * Remember to add \r\n to the end of the command.
  */
 uint8_t
-hayes_at(ATDevice* dev, char* command) {
+hayes_at(ATDevice * dev, char * command) {
 	return dev->api.write((uint8_t*)command, 0, strlen(command));
 }
 
@@ -25,12 +25,12 @@ hayes_at(ATDevice* dev, char* command) {
 uint8_t
 hayes_res(ATDevice* dev, RES_PREDICATE test, void* param, uint16_t timeout) {
 	dev->read = 0;
-	for (uint16_t d = 0; d < timeout; d += 10) {
+	for (uint16_t d = 0; d <= timeout; d += 10) {
 		while (dev->api.count() > 0) {
 			if (dev->read == dev->length) {
 				return HAYES_ERROR;
 			} else {
-				dev->buffer[dev->read++] = dev->api.getc();
+				dev->buffer[dev->read++] = dev->api.get_char();
 				if (test(dev, param)) {
 					return HAYES_OK;
 				}

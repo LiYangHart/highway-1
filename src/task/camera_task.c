@@ -1,69 +1,83 @@
 #include <peripheral/arducam.h>
 #include <peripheral/lps331.h>
 #include <peripheral/hts221.h>
-#include <task/camera_task.h>
 #include <task/watchdog_task.h>
-#include <fat_sl.h>
-#include <mdriver_spi_sd.h>
-#include <FreeRTOS.h>
-#include <semphr.h>
-#include <string.h>
-
-void camera_task(void * pvParameters);
-
-void camera_timer_elapsed(TimerHandle_t xTimer);
-void camera_timer_sample(TimerHandle_t xTimer);
-void camera_timer_photo(TimerHandle_t xTimer);
-
-void camera_task_setup();
-void camera_task_mount_sd();
-void camera_task_clean_sd();
-void camera_task_take_sample();
-void camera_task_write_samples();
-void camera_task_take_photo();
+#include <task/camera_task.h>
 
 QueueHandle_t xCameraQueue;
 TimerHandle_t xCameraTimer;
 TimerHandle_t xCameraTimerSample;
 TimerHandle_t xCameraTimerPhoto;
-uint8_t arduCamInstalled = 0;
+
+static Msg delayedMsg;
+uint8_t cameraFound = 0;
 SampleBuffer samples;
 uint16_t dcimIndex = 1;
-uint8_t gpio_regval = 0;
 
+/* Function prototypes */
+void camera_task_message_loop(void * pvParameters);
+void camera_timer_elapsed(TimerHandle_t xTimer);
+void camera_timer_sample(TimerHandle_t xTimer);
+void camera_timer_photo(TimerHandle_t xTimer);
+void camera_tell_delay(uint16_t message, uint32_t, TickType_t delay);
+
+void setup_sensors();
+void start_recording();
+void take_sample();
+void write_samples();
+void take_photo();
+
+/* Task setup and message loop ---------------------------------------------- */
 
 /**
  * Create the camera task.
  */
 uint8_t
 camera_task_create() {
+	BaseType_t retVal;
+
 	/* Create a message loop for this task. */
 	xCameraQueue = xQueueCreate(10, sizeof(Msg));
-	if (xCameraQueue == NULL) goto error;
+	ERROR_ON_NULL(xCameraQueue)
 
 	/* Timer used to schedule delayed state transitions. */
-	xCameraTimer = xTimerCreate("CAM-STA", 1000, pdFALSE, (void*)0,
+	xCameraTimer = xTimerCreate(
+			CAMERA_TASK_NAME "STATE",
+			1000,
+			pdFALSE,
+			(void*)0,
 			camera_timer_elapsed);
-	if (xCameraTimer == NULL) goto error;
+	ERROR_ON_NULL(xCameraTimer)
 
-	/* Timer used to schedule samples every 1 seconds. */
-	xCameraTimerSample = xTimerCreate("CAM-SAM", CAMERA_SAMPLE_INTERVAL,
-			pdTRUE, (void*)0, camera_timer_sample);
-	if (xCameraTimerSample == NULL) goto error;
+	/* Timer used to schedule environmental sampling. */
+	xCameraTimerSample = xTimerCreate(
+			CAMERA_TASK_NAME "SAMPLE",
+			CAMERA_SAMPLE_INTERVAL,
+			pdTRUE,
+			(void*)0,
+			camera_timer_sample);
+	ERROR_ON_NULL(xCameraTimerSample)
 
-	/* Timer used to schedule photos every 60 seconds. */
-	xCameraTimerPhoto = xTimerCreate("CAM-IMG", CAMERA_PHOTO_INTERVAL,
-			pdTRUE, (void*)0, camera_timer_photo);
-	if (xCameraTimerPhoto == NULL) goto error;
+	/* Timer used to schedule camera photo capture. */
+	xCameraTimerPhoto = xTimerCreate(
+			CAMERA_TASK_NAME "PHOTO",
+			CAMERA_PHOTO_INTERVAL,
+			pdTRUE,
+			(void*)0,
+			camera_timer_photo);
+	ERROR_ON_NULL(xCameraTimerPhoto)
 
 	/* Create the task. */
-	if (xTaskCreate(camera_task, CAMERA_TASK_NAME, CAMERA_TASK_STACK_SIZE,
-		(void *)NULL, tskIDLE_PRIORITY, NULL) != pdPASS) goto error;
+	retVal = xTaskCreate(
+			camera_task_message_loop,
+			CAMERA_TASK_NAME,
+			CAMERA_TASK_STACK_SIZE,
+			(void *)NULL,
+			tskIDLE_PRIORITY,
+			NULL);
+	ERROR_ON_FAIL(retVal)
 
-	/* Setup the camera hardware. */
-	Msg msg;
-	msg.message = MSG_CAMERA_SETUP;
-	xQueueSend(xCameraQueue, &msg, 0);
+	trace_printf("camera_task: created task\n");
 	return 1;
 
 error:
@@ -72,13 +86,15 @@ error:
 }
 
 /**
- * Record sensor data and capture images.
- * Activity is recorded to DATA.LOG to be picked up by the Skywire task.
+ * Message loop for the camera task.
  */
 void
-camera_task(void * pvParameters __attribute__((unused))) {
+camera_task_message_loop(void * pvParameters __attribute__((unused))) {
 	/* Initialize the sample buffer. */
 	samples.Count = 0;
+
+	/* Setup the sensors. */
+	camera_tell(MSG_CAMERA_SETUP, 0);
 
 	for (;;) {
 		Msg msg;
@@ -93,45 +109,32 @@ camera_task(void * pvParameters __attribute__((unused))) {
 			xQueueSend(xWatchdogQueue, &msg, 0);
 			break;
 		case MSG_CAMERA_SETUP:
-			/* Setup the sensors and camera. */
-			camera_task_setup();
+			setup_sensors();
 			break;
-		case MSG_CAMERA_MOUNT_SD:
-			/* Mount the volume on the SD card. */
-			camera_task_mount_sd();
-			break;
-		case MSG_CAMERA_CLEAN_SD:
-			/* Delete all files on the SD card. */
-			camera_task_clean_sd();
+		case MSG_SDCARD_MOUNTED:
+			start_recording();
 			break;
 		case MSG_CAMERA_SAMPLE:
-			/* Capture a sample in memory. */
-			camera_task_take_sample();
+			take_sample();
 			break;
 		case MSG_CAMERA_WRITE_SAMPLES:
-			/* Write samples to the SD card. */
-			camera_task_write_samples();
+			write_samples();
 			break;
 		case MSG_CAMERA_PHOTO:
-			/* Capture a photo to the SD card. */
-			camera_task_take_photo();
+			take_photo();
 			break;
 		}
 	}
 }
 
-// -----------------------------------------------------------------------------
+/* Timer callbacks ---------------------------------------------------------- */
 
 /**
  * Timer callback to initiate state transitions.
  */
 void
-camera_timer_elapsed(TimerHandle_t xTimer) {
-	Msg msg;
-	/* The message to send is stored in the timer ID. */
-	msg.message = (uint32_t)pvTimerGetTimerID(xTimer);
-	msg.param1 = 0;
-	xQueueSend(xCameraQueue, &msg, 0);
+camera_timer_elapsed(TimerHandle_t xTimer __attribute__((unused))) {
+	xQueueSend(xCameraQueue, &delayedMsg, 0);
 }
 
 /**
@@ -139,8 +142,7 @@ camera_timer_elapsed(TimerHandle_t xTimer) {
  */
 void
 camera_timer_sample(TimerHandle_t xTimer __attribute__((unused))) {
-	Msg msg = { MSG_CAMERA_SAMPLE, 0 };
-	xQueueSend(xCameraQueue, &msg, 0);
+	camera_tell(MSG_CAMERA_SAMPLE, 0);
 }
 
 /**
@@ -148,97 +150,68 @@ camera_timer_sample(TimerHandle_t xTimer __attribute__((unused))) {
  */
 void
 camera_timer_photo(TimerHandle_t xTimer __attribute__((unused))) {
-	Msg msg = { MSG_CAMERA_PHOTO, 0 };
+	camera_tell(MSG_CAMERA_PHOTO, 0);
+}
+
+/* Message sending ---------------------------------------------------------- */
+
+/**
+ * Send a message to the upload task queue.
+ */
+void
+camera_tell(uint16_t message, uint32_t param1) {
+	Msg msg = { message, param1 };
 	xQueueSend(xCameraQueue, &msg, 0);
 }
 
-// -----------------------------------------------------------------------------
+/**
+ * Send a message to the upload task queue after a delay.
+ */
+void
+camera_tell_delay(uint16_t message, uint32_t param1, TickType_t delay) {
+	delayedMsg.message = message;
+	delayedMsg.param1 = param1;
+	xTimerChangePeriod(xCameraTimer, delay, 0);
+	xTimerStart(xCameraTimer, 0);
+}
+
+/* Message handlers --------------------------------------------------------- */
 
 /**
  * Initialize the peripherals for this task.
  */
 void
-camera_task_setup() {
+setup_sensors() {
+	if (!spi_take()) {
+		/* Keep trying to obtain access to the SPI bus. */
+		camera_tell_delay(MSG_CAMERA_SETUP, 0, 100);
+		return;
+	}
+
+	trace_printf("camera_task: initialize sensors\n");
+
 	/* Initialize I2C peripherals for this task. */
 	ov5642_init();
 	lps331_init();
 	hts221_init();
 
-	/* Intialize SPI peripherals for this task. */
-	spi_take();
-	arduCamInstalled = arducam_init();
-	spi_give();
+	cameraFound = arducam_init();
+	if (cameraFound) {
+		trace_printf("camera_task: camera installed\n");
+	} else {
+		trace_printf("camera_task: camera not found\n");
+	}
 
-	/* Try to mount the SD card. */
-	Msg msg;
-	msg.message = MSG_CAMERA_MOUNT_SD;
-	xQueueSend(xCameraQueue, &msg, 0);
+	spi_give();
 }
 
 /**
- * Mount the volume on the SD card.
+ * Start taking photos and recording samples.
  */
 void
-camera_task_mount_sd() {
-	spi_take();
-	/* Initialize the FAT volume on the SD card. */
-	if (fn_initvolume(mmc_spi_initfunc) != F_NO_ERROR) {
-		goto error;
-	}
-	spi_give();
+start_recording() {
+	trace_printf("camera_task: start recording\n");
 
-#ifdef CAMERA_CLEAN_SD
-	/* Delete all files on the SD card. */
-	Msg msg = { MSG_CAMERA_CLEAN_SD, 0 };
-	xQueueSend(xCameraQueue, &msg, 0);
-#else
-	/* Enable the timers for samples and photos. */
-	xTimerStart(xCameraTimerSample, 0);
-	xTimerStart(xCameraTimerPhoto, 0);
-#endif
-
-	return;
-
-error:
-	trace_printf("camera_task: failed to mount volume\n");
-	spi_give();
-
-	/* Retry in one second. */
-	xTimerChangePeriod(xCameraTimer, 1000, 0);
-	vTimerSetTimerID(xCameraTimer, (void*)MSG_CAMERA_MOUNT_SD);
-	xTimerStart(xCameraTimer, 0);
-}
-
-/**
- * Delete all files on the SD card.
- */
-void
-camera_task_clean_sd() {
-	if (!spi_take()) {
-		/* Keep trying to obtain access to the SPI bus. */
-		xTimerChangePeriod(xCameraTimer, 1000, 0);
-		vTimerSetTimerID(xCameraTimer, (void*)MSG_CAMERA_CLEAN_SD);
-		xTimerStart(xCameraTimer, 0);
-	}
-
-	trace_printf("camera_task: cleaning SD card\n");
-	f_delete("data.log");
-	F_FIND xFindStruct;
-	if (f_findfirst("*.JPG", &xFindStruct) == F_NO_ERROR) {
-		do {
-			f_delete(xFindStruct.filename);
-		} while (f_findnext(&xFindStruct) == F_NO_ERROR);
-	}
-
-	if (f_findfirst("upload", &xFindStruct) != F_NO_ERROR) {
-		f_mkdir("upload");
-	}
-
-	f_chdir("upload");
-
-	spi_give();
-
-	/* Enable the timers for samples and photos. */
 	xTimerStart(xCameraTimerSample, 0);
 	xTimerStart(xCameraTimerPhoto, 0);
 }
@@ -247,7 +220,7 @@ camera_task_clean_sd() {
  * Capture a sample in memory.
  */
 void
-camera_task_take_sample() {
+take_sample() {
 	/* Ensure that there is room in the sample buffer. */
 	if (samples.Count < SAMPLE_BUFFER_SIZE) {
 		/* Record a sample from each sensor. */
@@ -288,7 +261,7 @@ open_log() {
  * Write the sample buffer to DATA.log.
  */
 void
-camera_task_write_samples() {
+write_samples() {
 	F_FILE* pxLog = NULL;
 
 	if (!spi_take()) {
@@ -352,7 +325,7 @@ next_image_name(char* buffer, uint8_t length) {
  * Capture an image from the camera to the SD card.
  */
 void
-camera_task_take_photo() {
+take_photo() {
 	F_FILE *pxJpg = NULL, *pxLog = NULL;
 
 	if (!spi_take()) {
@@ -437,4 +410,8 @@ error:
 	if (pxLog != NULL) { f_close(pxLog); };
 	spi_give();
 }
+
+/* Other functions ---------------------------------------------------------- */
+
+
 

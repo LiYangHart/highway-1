@@ -1,5 +1,5 @@
 /**
- * Camera task
+ * This task operates the camera and environmental sensor package.
  *
  * Author: Mark Lieberman
  */
@@ -7,14 +7,7 @@
 #ifndef _CAMERA_TASK_H_
 #define _CAMERA_TASK_H_
 
-#include <stm32f4xx.h>
-#include <stm32f4xx_hal_conf.h>
-
-#include "FreeRTOS.h"
-#include "task.h"
-#include "timers.h"
-
-#include "msg.h"
+#include "common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,7 +17,6 @@ extern "C" {
 #define CAMERA_TASK_STACK_SIZE 2048
 
 #define SAMPLE_BUFFER_SIZE 64
-#define CAMERA_CLEAN_SD 1
 
 #define CAMERA_SAMPLE_INTERVAL 5000
 #define CAMERA_PHOTO_INTERVAL 60000
@@ -51,10 +43,8 @@ typedef struct _SampleBuffer {
 
 #define BURST_READ_LENGTH 128
 
-/* Program will delete DATA.LOG and JPG files at boot if defined. */
-#define CLEAN_SD_CARD
-
 uint8_t camera_task_create();
+void camera_tell(uint16_t message, uint32_t param1);
 
 #ifdef __cplusplus
 }

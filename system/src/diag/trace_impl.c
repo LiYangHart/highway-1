@@ -207,7 +207,7 @@ _trace_write_semihosting_stdout (const char* buf, size_t nbyte)
 
 #if defined(OS_USE_TRACE_SEMIHOSTING_DEBUG)
 
-#define OS_INTEGER_TRACE_TMP_ARRAY_SIZE  (16)
+#define OS_INTEGER_TRACE_TMP_ARRAY_SIZE  (64)
 
 static ssize_t
 _trace_write_semihosting_debug (const char* buf, size_t nbyte)

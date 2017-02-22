@@ -43,7 +43,7 @@ dma_serial_getc(DMA_SerialHandle* handle) {
 /**
  * Read up to 'length' characters from the ring buffer.
  */
-uint8_t
+uint16_t
 dma_serial_read(DMA_SerialHandle* handle, uint8_t* buffer, uint16_t position,
 		uint16_t length) {
 

@@ -194,7 +194,7 @@ receive_task(void * pvParameters) {
 
 	ATDevice xbee_receive;
 	xbee_receive.api.count = xbee_count;
-	xbee_receive.api.getc = xbee_getc;
+	xbee_receive.api.get_char = xbee_getc;
 	xbee_receive.api.write = xbee_write;
 	xbee_receive.buffer = buffer;
 	xbee_receive.length = 512;

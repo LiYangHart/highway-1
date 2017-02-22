@@ -30,8 +30,6 @@
 
 void
 setup_task(void * pvParameters) {
-	Msg msg;
-
 	/* Initialize the I2C bus. */
 	trace_printf("initialize I2C bus\n");
 	i2c_bus_init();
@@ -46,22 +44,22 @@ setup_task(void * pvParameters) {
 	#endif
 
 	#if POWER_TASK
-	trace_printf("starting power task\n");
+	//trace_printf("starting power task\n");
 	power_task_create();
 	#endif
 
 	#if CAMERA_TASK
-	trace_printf("starting camera task\n");
+	//trace_printf("starting camera task\n");
 	camera_task_create();
 	#endif
 
 	#if UPLOAD_TASK
-	trace_printf("starting upload task\n");
+	//trace_printf("starting upload task\n");
 	upload_task_create();
 	#endif
 
 	#if SKYWIRE_TASK
-	trace_printf("starting skywire task\n");
+	//trace_printf("starting skywire task\n");
 	skywire_task_create();
 	#endif
 
@@ -87,7 +85,6 @@ setup_task(void * pvParameters) {
 
 	/* Delete the setup task. */
 	vTaskDelete(NULL);
-	trace_printf("Setup complete\n");
 }
 
 int

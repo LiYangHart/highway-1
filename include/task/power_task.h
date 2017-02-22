@@ -1,5 +1,5 @@
 /**
- * Camera task
+ * Monitor power consumption of the board.
  *
  * Author: Mark Lieberman
  */
@@ -7,14 +7,7 @@
 #ifndef _POWER_TASK_H_
 #define _POWER_TASK_H_
 
-#include <stm32f4xx.h>
-#include <stm32f4xx_hal_conf.h>
-
-#include "FreeRTOS.h"
-#include "task.h"
-#include "timers.h"
-
-#include "msg.h"
+#include "common.h"
 
 #ifdef __cplusplus
 extern "C" {

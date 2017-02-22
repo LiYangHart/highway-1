@@ -1,50 +1,50 @@
 /**
- * Skywire task
+ * This task provides power management and socket data services for the Skywire
+ * modem. See http_client.h for an HTTP client implementation built on top of
+ * this task.
  *
- * Author: Mark Lieberman, Matthew Mayhew
+ * Author: Mark Lieberman
  */
 
 #ifndef _SKYWIRE_TASK_H_
 #define _SKYWIRE_TASK_H_
 
-#include <stm32f4xx.h>
-#include <stm32f4xx_hal_conf.h>
-
-#include "FreeRTOS.h"
-#include "task.h"
+#include "common.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define SKYWIRE_STATE_POWER_OFF 0
-#define SKYWIRE_STATE_POWER_ON 1
-#define SKYWIRE_STATE_POWERING_ON 2
-#define SKYWIRE_STATE_POWERING_OFF 3
-#define SKYWIRE_STATE_CONNECTED 4
+/* Constants ---------------------------------------------------------------- */
+
+/* Task name and stack size. */
+#define SKYWIRE_TASK_NAME              "HTTP"
+#define SKYWIRE_TASK_STACK_SIZE        1024
+
+/* Size of buffer used to read and write commands to and from the Skywire. */
+#define SKYWIRE_BUFFER_LENGTH          256
+
+/* Skywire task states */
+#define SKYWIRE_STATE_POWER_OFF        0
+#define SKYWIRE_STATE_POWER_ON         1
+#define SKYWIRE_STATE_POWERING_ON      2
+#define SKYWIRE_STATE_POWERING_OFF     3
+#define SKYWIRE_STATE_CONNECTED        4
+
+/* Variables ---------------------------------------------------------------- */
 
 extern QueueHandle_t xSkywireQueue;
 
-#define SKYWIRE_TASK_NAME "SKYW"
-#define SKYWIRE_TASK_STACK_SIZE 2586
+/* Functions ---------------------------------------------------------------- */
 
-typedef struct _SkywireRequest {
-	uint16_t iHandle;
-	uint8_t bFileUpload;
-	char sMethod[16];
-	char sHost[64];
-	char sPath[64];
-	const char * sContentType;
-	char * sBody;
-} SkywireRequest;
-
-extern const char * CONTENT_TYPE_APPLICATION_JSON;
-extern const char * CONTENT_TYPE_OCTET_STREAM;
-
-/* Configurable options */
-#define NGROK_TUNNEL "4b9cc537.ngrok.io"
+void skywire_tell(uint16_t message, uint32_t param1);
+void skywire_tell_delay(uint16_t message, uint32_t param1, TickType_t delay);
 
 uint8_t skywire_task_create();
+void skywire_reactivate();
+
+uint8_t skywire_connected();
+uint8_t skywire_socket_open(char* address);
 
 #ifdef __cplusplus
 }

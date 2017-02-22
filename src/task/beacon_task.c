@@ -189,7 +189,7 @@ beacon_task(void * pvParameters) {
 	//AT device for use with hayes commands
 	ATDevice xbee_transmit;
 	xbee_transmit.api.count = xbee_count;
-	xbee_transmit.api.getc = xbee_getc;
+	xbee_transmit.api.get_char = xbee_getc;
 	xbee_transmit.api.write = xbee_write;
 	xbee_transmit.buffer = buffer;
 	xbee_transmit.length = 512;

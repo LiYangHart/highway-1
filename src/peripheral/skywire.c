@@ -2,12 +2,12 @@
 #include <peripheral/skywire.h>
 #include <string.h>
 
-uint8_t rx_buffer[512];
+static uint8_t rx_buffer[SKYWIRE_DMA_BUFFER_LENGTH];
 DMA_SerialHandle skywire = {
 	{ 0 },
 	{ 0 },
 	rx_buffer,
-	512,
+	SKYWIRE_DMA_BUFFER_LENGTH,
 	rx_buffer
 };
 
@@ -79,32 +79,6 @@ skywire_init() {
 
 	/* Start the receive process. */
 	HAL_UART_Receive_DMA(&skywire.huart, skywire.rx_buffer, skywire.rx_length);
-}
-
-/**
- * Perform the activation function for the Skywire modem.
- *
- * This requires a pulse of 1s < HOLD_TIME < 2s to be applied to ON_OFF.
- * The modem may not respond to commands for up to 15 seconds.
- */
-void
-skywire_activate() {
-	skywire_rts(GPIO_PIN_RESET);
-
-	/* The ON/activation pulse shall have timing: 1s < HOLD_TIME < 2s. */
-	skywire_en(GPIO_PIN_RESET);
-	vTaskDelay(1500 / portTICK_PERIOD_MS);
-	skywire_en(GPIO_PIN_SET);
-	vTaskDelay(1500 / portTICK_PERIOD_MS);
-	skywire_en(GPIO_PIN_RESET);
-}
-
-/**
- *
- */
-void
-skywire_deactivate() {
-
 }
 
 uint16_t

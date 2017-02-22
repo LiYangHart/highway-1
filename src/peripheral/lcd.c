@@ -3,7 +3,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-uint8_t rx_buffer[128];
+static uint8_t rx_buffer[128];
 DMA_SerialHandle lcd = {
 	{ 0 },
 	{ 0 },
